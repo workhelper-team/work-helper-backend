@@ -2,7 +2,7 @@ package com.workhelper.domain.petition.service;
 
 import com.workhelper.domain.cases.entity.Case;
 import com.workhelper.domain.cases.repository.CaseRepository;
-import com.workhelper.domain.petition.dto.PetitionGenerateRequest;
+import com.workhelper.domain.petition.dto.PetitionCreateRequest;
 import com.workhelper.domain.petition.dto.PetitionResponse;
 import com.workhelper.domain.petition.entity.Petition;
 import com.workhelper.domain.petition.repository.PetitionRepository;
@@ -28,7 +28,7 @@ public class PetitionService {
      * FastAPI에 진정서 생성을 요청하고 결과를 저장
      */
     @Transactional
-    public PetitionResponse generate(PetitionGenerateRequest request) {
+    public PetitionResponse generate(PetitionCreateRequest request) {
         Case caseEntity = caseRepository.findById(request.caseId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CASE_NOT_FOUND));
 
@@ -38,7 +38,7 @@ public class PetitionService {
 
         Petition petition = Petition.builder()
                 .caseEntity(caseEntity)
-                .title(request.title())
+                .title("진정서 - 사건 #" + caseEntity.getId())
                 .content(generated)
                 .build();
 

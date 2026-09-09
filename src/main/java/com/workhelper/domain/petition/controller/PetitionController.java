@@ -1,6 +1,6 @@
 package com.workhelper.domain.petition.controller;
 
-import com.workhelper.domain.petition.dto.PetitionGenerateRequest;
+import com.workhelper.domain.petition.dto.PetitionCreateRequest;
 import com.workhelper.domain.petition.dto.PetitionResponse;
 import com.workhelper.domain.petition.service.PetitionService;
 import com.workhelper.global.common.ApiResponse;
@@ -29,7 +29,7 @@ public class PetitionController {
 
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<PetitionResponse>> generate(
-            @Valid @RequestBody PetitionGenerateRequest request) {
+            @Valid @RequestBody PetitionCreateRequest request) {
         PetitionResponse response = petitionService.generate(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }

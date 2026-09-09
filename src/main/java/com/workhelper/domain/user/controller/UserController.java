@@ -1,7 +1,8 @@
 package com.workhelper.domain.user.controller;
 
+import com.workhelper.domain.user.dto.UserJoinRequest;
+import com.workhelper.domain.user.dto.UserLoginRequest;
 import com.workhelper.domain.user.dto.UserResponse;
-import com.workhelper.domain.user.dto.UserSignupRequest;
 import com.workhelper.domain.user.service.UserService;
 import com.workhelper.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -24,9 +25,15 @@ public class UserController {
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<UserResponse>> signup(
-            @Valid @RequestBody UserSignupRequest request) {
+            @Valid @RequestBody UserJoinRequest request) {
         UserResponse response = userService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<UserResponse>> login(
+            @Valid @RequestBody UserLoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.login(request)));
     }
 
     @GetMapping("/{userId}")

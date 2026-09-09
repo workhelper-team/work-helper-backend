@@ -1,5 +1,7 @@
 package com.workhelper.domain.consultation.service;
 
+import com.workhelper.domain.consultation.dto.ChatMessageRequest;
+import com.workhelper.domain.consultation.dto.ChatMessageResponse;
 import com.workhelper.domain.consultation.dto.ConsultationRequest;
 import com.workhelper.domain.consultation.dto.ConsultationResponse;
 import com.workhelper.domain.consultation.entity.Consultation;
@@ -48,6 +50,34 @@ public class ConsultationService {
                 .build();
 
         return ConsultationResponse.from(consultationRepository.save(consultation));
+    }
+
+    /**
+     * 챗봇 메시지 처리 -> FastAPI RAG 질의 -> 세션 기록 저장
+     */
+    @Transactional
+    public ChatMessageResponse chat(Long userId, ChatMessageRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // TODO: 실제 FastAPI 연동 시 주석 해제
+        // AiResponseDto aiResponse = aiClient.ragQuery(request.message());
+        // String answer = aiResponse.result();
+        // List<String> references = metadata에서 참조 법령/판례 추출
+
+        String answer = "AI 서버 연동 전 임시 응답입니다.";
+        List<String> references = List.of();
+
+        Consultation consultation = Consultation.builder()
+                .user(user)
+                .question(request.message())
+                .answer(answer)
+                .type(Consultation.ConsultationType.CHATBOT)
+                .sessionId(request.sessionId())
+                .build();
+        consultationRepository.save(consultation);
+
+        return new ChatMessageResponse(request.sessionId(), answer, references);
     }
 
     public List<ConsultationResponse> getHistory(Long userId) {

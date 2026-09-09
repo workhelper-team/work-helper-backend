@@ -1,5 +1,7 @@
 package com.workhelper.domain.consultation.controller;
 
+import com.workhelper.domain.consultation.dto.ChatMessageRequest;
+import com.workhelper.domain.consultation.dto.ChatMessageResponse;
 import com.workhelper.domain.consultation.dto.ConsultationRequest;
 import com.workhelper.domain.consultation.dto.ConsultationResponse;
 import com.workhelper.domain.consultation.service.ConsultationService;
@@ -30,6 +32,13 @@ public class ConsultationController {
             @Valid @RequestBody ConsultationRequest request) {
         ConsultationResponse response = consultationService.ask(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    @PostMapping("/chat")
+    public ResponseEntity<ApiResponse<ChatMessageResponse>> chat(
+            @RequestParam Long userId,
+            @Valid @RequestBody ChatMessageRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(consultationService.chat(userId, request)));
     }
 
     @GetMapping

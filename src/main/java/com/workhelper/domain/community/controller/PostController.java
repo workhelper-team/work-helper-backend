@@ -1,6 +1,6 @@
 package com.workhelper.domain.community.controller;
 
-import com.workhelper.domain.community.dto.PostRequest;
+import com.workhelper.domain.community.dto.PostCreateRequest;
 import com.workhelper.domain.community.dto.PostResponse;
 import com.workhelper.domain.community.service.PostService;
 import com.workhelper.global.common.ApiResponse;
@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,8 +30,9 @@ public class PostController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<PostResponse>> create(
-            @Valid @RequestBody PostRequest request) {
-        PostResponse response = postService.create(request);
+            @RequestParam Long userId,
+            @Valid @RequestBody PostCreateRequest request) {
+        PostResponse response = postService.create(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
@@ -48,7 +50,7 @@ public class PostController {
     @PutMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostResponse>> update(
             @PathVariable Long postId,
-            @Valid @RequestBody PostRequest request) {
+            @Valid @RequestBody PostCreateRequest request) {
         return ResponseEntity.ok(ApiResponse.success(postService.update(postId, request)));
     }
 

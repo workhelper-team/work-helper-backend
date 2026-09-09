@@ -1,6 +1,6 @@
 package com.workhelper.domain.community.service;
 
-import com.workhelper.domain.community.dto.PostRequest;
+import com.workhelper.domain.community.dto.PostCreateRequest;
 import com.workhelper.domain.community.dto.PostResponse;
 import com.workhelper.domain.community.entity.Post;
 import com.workhelper.domain.community.repository.PostRepository;
@@ -23,8 +23,8 @@ public class PostService {
     private final UserRepository userRepository;
 
     @Transactional
-    public PostResponse create(PostRequest request) {
-        User author = userRepository.findById(request.userId())
+    public PostResponse create(Long userId, PostCreateRequest request) {
+        User author = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         Post post = Post.builder()
@@ -50,7 +50,7 @@ public class PostService {
     }
 
     @Transactional
-    public PostResponse update(Long postId, PostRequest request) {
+    public PostResponse update(Long postId, PostCreateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         post.update(request.title(), request.content());

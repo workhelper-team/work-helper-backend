@@ -1,7 +1,8 @@
 package com.workhelper.domain.user.service;
 
+import com.workhelper.domain.user.dto.UserJoinRequest;
+import com.workhelper.domain.user.dto.UserLoginRequest;
 import com.workhelper.domain.user.dto.UserResponse;
-import com.workhelper.domain.user.dto.UserSignupRequest;
 import com.workhelper.domain.user.entity.User;
 import com.workhelper.domain.user.repository.UserRepository;
 import com.workhelper.global.error.BusinessException;
@@ -20,7 +21,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public UserResponse signup(UserSignupRequest request) {
+    public UserResponse signup(UserJoinRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
@@ -33,6 +34,18 @@ public class UserService {
                 .build();
 
         return UserResponse.from(userRepository.save(user));
+    }
+
+    public UserResponse login(UserLoginRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        // TODO: JWT 발급 적용 시 토큰 반환으로 변경
+        return UserResponse.from(user);
     }
 
     public UserResponse getUser(Long userId) {
