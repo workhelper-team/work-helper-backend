@@ -1,36 +1,13 @@
-server:
-  port: 8080
-
 spring:
   application:
     name: work-helper-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/workhelper
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
-      ddl-auto: update # 개발: update / 운영: validate 권장
+      ddl-auto: validate
     open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  servlet:
-    multipart:
-      max-file-size: 20MB
-      max-request-size: 100MB
-
-# FastAPI AI 서버 엔드포인트
-ai:
-  fastapi:
-    base-url: ${AI_SERVER_URL:http://localhost:8000}
-
-logging:
-  level:
-    root: info
-    com.workhelper: debug
