@@ -1,0 +1,45 @@
+package com.workhelper.domain.consultation.dto;
+
+import com.workhelper.domain.consultation.entity.ConsultationMessage;
+import lombok.Getter;
+
+
+// ============================================================
+// 상담 메시지 응답 DTO
+// 서버에서 조회하거나 처리한 상담 메시지를
+// 클라이언트에게 반환할 때 사용하는 데이터 객체
+// ============================================================
+@Getter
+public class ConsultationMessageResponseDto {
+
+    // 상담 메시지의 고유 ID
+    private Long id;
+
+    // 메시지를 보낸 주체
+    // 예: USER / AI
+    private String senderType;
+
+    // 실제 상담 메시지 내용
+    private String content;
+
+    // 상담 내용을 구조화한 결과
+    // 예: 상담 요약, 분류 결과 등의 데이터
+    private String structuredResult;
+
+
+    // Entity 객체를 Response DTO로 변환하는 생성자
+    public ConsultationMessageResponseDto(ConsultationMessage message) {
+
+        // Entity의 메시지 ID를 응답 DTO에 저장
+        this.id = message.getId();
+
+        // Entity의 발신자 유형을 응답 DTO에 저장
+        this.senderType = message.getSenderType();
+
+        // Entity의 메시지 내용을 응답 DTO에 저장
+        this.content = message.getContent();
+
+        // Entity의 구조화된 결과를 응답 DTO에 저장
+        this.structuredResult = message.getStructuredResult();
+    }
+}
