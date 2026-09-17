@@ -10,10 +10,11 @@ import java.time.OffsetDateTime;
 
 // ============================================================
 // 노동 사건 Entity
-// Java의 LaborCase 객체와 DB의 cases 테이블을 연결
+// Java의 LaborCase 객체와 DB의 app.cases 테이블을 연결
 // ============================================================
+
 @Entity
-@Table(name = "cases")
+@Table(name = "cases", schema = "app")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LaborCase {
@@ -22,9 +23,8 @@ public class LaborCase {
     // 노동 사건 고유 ID
     // DB: case_id
     // PK / IDENTITY
-    //
-    // 사건이 저장될 때 DB에서 ID 자동 생성
     // ============================================================
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "case_id")
@@ -35,6 +35,7 @@ public class LaborCase {
     // DB: title
     // VARCHAR(200) / NOT NULL
     // ============================================================
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
@@ -43,6 +44,7 @@ public class LaborCase {
     // DB: category
     // VARCHAR(50)
     // ============================================================
+
     @Column(name = "category", length = 50)
     private String category;
 
@@ -50,10 +52,8 @@ public class LaborCase {
     // 사건 상태
     // DB: status
     // VARCHAR(30) / NOT NULL
-    //
-    // 상태값은 설계서에서 정의된 값을 사용하며
-    // Entity에서 임의의 기본값을 지정하지 않음
     // ============================================================
+
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 
@@ -62,6 +62,7 @@ public class LaborCase {
     // DB: summary
     // TEXT
     // ============================================================
+
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
@@ -71,6 +72,7 @@ public class LaborCase {
     // TIMESTAMPTZ / NOT NULL
     // DB 기본값: CURRENT_TIMESTAMP
     // ============================================================
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -80,14 +82,17 @@ public class LaborCase {
     // TIMESTAMPTZ / NOT NULL
     // DB 기본값: CURRENT_TIMESTAMP
     // ============================================================
+
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
     // ============================================================
     // Entity 생성용 Builder
     //
-    // DB에서 자동 생성되는 id와 생성/수정 일시는 받지 않음
+    // DB에서 자동 생성되는 id와
+    // 생성/수정 일시는 받지 않음
     // ============================================================
+
     @Builder
     public LaborCase(
             String title,
@@ -104,30 +109,27 @@ public class LaborCase {
     // ============================================================
     // 기존 노동 사건 정보 수정
     //
-    // 전달된 값이 null이 아닌 경우 해당 필드만 수정
+    // PATCH 요청에 맞춰 전달된 값만 수정
     // ============================================================
+
     public void updateCase(
             String title,
             String category,
             String status,
             String summary
     ) {
-        // 제목이 전달된 경우 수정
         if (title != null) {
             this.title = title;
         }
 
-        // 카테고리가 전달된 경우 수정
         if (category != null) {
             this.category = category;
         }
 
-        // 상태가 전달된 경우 수정
         if (status != null) {
             this.status = status;
         }
 
-        // 요약이 전달된 경우 수정
         if (summary != null) {
             this.summary = summary;
         }

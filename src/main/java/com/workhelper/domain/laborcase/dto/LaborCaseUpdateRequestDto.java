@@ -4,19 +4,19 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 // ============================================================
-// 노동 사건 생성 요청 DTO
+// 노동 사건 수정 요청 DTO
 //
-// POST /api/cases
+// PATCH /api/cases/{caseId}
 //
-// 클라이언트가 사건을 생성할 때 전달하는 데이터
+// 사건 정보 및 상태를 수정할 때 전달하는 데이터
 // ============================================================
 @Getter
 @NoArgsConstructor
-public class LaborCaseRequestDto {
+public class LaborCaseUpdateRequestDto {
 
     // ========================================================
     // 사건 제목
-    // 필수
+    // 선택
     // ========================================================
     private String title;
 
@@ -27,10 +27,16 @@ public class LaborCaseRequestDto {
     private String category;
 
     // ========================================================
-    // 사건 초기 설명
+    // 사건 상태
     // 선택
     //
-    // 사건 생성 시 사용자가 입력한 초기 사건 설명
+    // 종료/보관 역시 status 변경으로 처리
     // ========================================================
-    private String initialDescription;
+    private String status;
+
+    // ========================================================
+    // 사건 요약
+    // 선택
+    // ========================================================
+    private String summary;
 }

@@ -3,9 +3,9 @@ spring:
     name: work-helper-backend
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://workhelper-db.cl8s8em6ox0v.ap-northeast-2.rds.amazonaws.com:5432/workhelper
+    username: postgres
+    password: 'helper1234!'
 
   jpa:
     hibernate:
