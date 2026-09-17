@@ -14,30 +14,36 @@ import java.util.stream.Collectors;
 
 // ============================================================
 // 노동 사건 Service
+//
 // Controller에서 전달받은 요청을 실제 비즈니스 로직으로 처리
+// Repository를 통해 노동 사건 데이터를 저장, 조회, 수정, 삭제
 // ============================================================
 @Service
-
-// LaborCaseRepository를 생성자를 통해 자동 주입
 @RequiredArgsConstructor
-
-// 기본적으로 조회 작업은 읽기 전용 트랜잭션으로 처리
 @Transactional(readOnly = true)
 public class LaborCaseService {
 
-    // 노동 사건의 DB 저장 및 조회를 담당하는 Repository
+    // ============================================================
+    // 노동 사건 DB 접근을 담당하는 Repository
+    // ============================================================
     private final LaborCaseRepository laborCaseRepository;
 
 
     // ============================================================
     // 노동 사건 생성
+    //
     // POST /api/cases
+    //
+    // Request DTO의 데이터를 Entity로 변환한 후
+    // Repository를 통해 DB에 저장
     // ============================================================
     @Transactional
-    public LaborCaseResponseDto createCase(LaborCaseRequestDto requestDto) {
+    public LaborCaseResponseDto createCase(
+            LaborCaseRequestDto requestDto
+    ) {
 
         // --------------------------------------------------------
-        // 1. Request DTO의 데이터를 이용해 LaborCase Entity 생성
+        // 1. Request DTO → LaborCase Entity 변환
         // --------------------------------------------------------
         LaborCase laborCase = LaborCase.builder()
                 .title(requestDto.getTitle())
@@ -48,14 +54,14 @@ public class LaborCaseService {
 
 
         // --------------------------------------------------------
-        // 2. 생성한 사건을 DB에 저장
+        // 2. Entity를 Repository를 통해 DB에 저장
         // --------------------------------------------------------
         LaborCase savedCase =
                 laborCaseRepository.save(laborCase);
 
 
         // --------------------------------------------------------
-        // 3. 저장된 Entity를 Response DTO로 변환하여 반환
+        // 3. 저장된 Entity → Response DTO 변환
         // --------------------------------------------------------
         return new LaborCaseResponseDto(savedCase);
     }
@@ -63,13 +69,16 @@ public class LaborCaseService {
 
     // ============================================================
     // 전체 노동 사건 조회
+    //
     // GET /api/cases
+    //
+    // Repository에서 전체 사건을 조회하고
+    // 각각의 Entity를 Response DTO로 변환하여 반환
     // ============================================================
     public List<LaborCaseResponseDto> getAllCases() {
 
-        // DB에서 모든 사건을 조회한 후
-        // 각 Entity를 Response DTO로 변환
-        return laborCaseRepository.findAll().stream()
+        return laborCaseRepository.findAll()
+                .stream()
                 .map(LaborCaseResponseDto::new)
                 .collect(Collectors.toList());
     }
@@ -77,14 +86,18 @@ public class LaborCaseService {
 
     // ============================================================
     // 특정 노동 사건 조회
+    //
     // GET /api/cases/{id}
+    //
+    // 전달받은 사건 ID를 기준으로
+    // 특정 사건을 조회
     // ============================================================
     public LaborCaseResponseDto getCase(Long id) {
 
-        // 전달받은 ID에 해당하는 사건 조회
+        // --------------------------------------------------------
+        // 1. 사건 ID를 기준으로 DB 조회
+        // --------------------------------------------------------
         LaborCase laborCase = laborCaseRepository.findById(id)
-
-                // 사건이 존재하지 않으면 예외 발생
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "해당 사건을 찾을 수 없습니다. ID: " + id
@@ -92,14 +105,20 @@ public class LaborCaseService {
                 );
 
 
-        // 조회한 Entity를 Response DTO로 변환하여 반환
+        // --------------------------------------------------------
+        // 2. 조회한 Entity → Response DTO 변환
+        // --------------------------------------------------------
         return new LaborCaseResponseDto(laborCase);
     }
 
 
     // ============================================================
     // 노동 사건 수정
+    //
     // PUT /api/cases/{id}
+    //
+    // 기존 사건을 조회한 후
+    // Entity의 수정 메서드를 호출하여 데이터를 변경
     // ============================================================
     @Transactional
     public LaborCaseResponseDto updateCase(
@@ -119,7 +138,10 @@ public class LaborCaseService {
 
 
         // --------------------------------------------------------
-        // 2. Entity의 updateCase()를 호출하여 기존 데이터 수정
+        // 2. 기존 Entity의 데이터를 수정
+        //
+        // Entity 내부의 updateCase()를 호출하여
+        // 전달받은 값으로 기존 사건 정보를 변경
         // --------------------------------------------------------
         laborCase.updateCase(
                 requestDto.getTitle(),
@@ -131,15 +153,22 @@ public class LaborCaseService {
 
         // --------------------------------------------------------
         // 3. 수정된 Entity를 Response DTO로 변환
+        //
+        // 별도의 save() 호출 없이도
+        // @Transactional 환경에서 JPA 변경 감지를 통해
+        // 트랜잭션 종료 시 변경 내용이 DB에 반영됨
         // --------------------------------------------------------
-        // JPA의 변경 감지를 통해 트랜잭션 종료 시 DB에 반영
         return new LaborCaseResponseDto(laborCase);
     }
 
 
     // ============================================================
     // 노동 사건 삭제
+    //
     // DELETE /api/cases/{id}
+    //
+    // 사건 ID를 기준으로 기존 사건을 조회한 후
+    // Repository를 통해 DB에서 삭제
     // ============================================================
     @Transactional
     public void deleteCase(Long id) {
@@ -156,7 +185,7 @@ public class LaborCaseService {
 
 
         // --------------------------------------------------------
-        // 2. 해당 사건을 DB에서 삭제
+        // 2. 조회한 사건을 Repository를 통해 삭제
         // --------------------------------------------------------
         laborCaseRepository.delete(laborCase);
     }

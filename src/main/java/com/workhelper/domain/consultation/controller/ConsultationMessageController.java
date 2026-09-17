@@ -1,14 +1,8 @@
 package com.workhelper.domain.consultation.controller;
 
-// 상담 메시지 요청 데이터를 받기 위한 DTO
 import com.workhelper.domain.consultation.dto.ConsultationMessageRequestDto;
-
-// 상담 메시지 응답 데이터를 반환하기 위한 DTO
 import com.workhelper.domain.consultation.dto.ConsultationMessageResponseDto;
-
-// 실제 상담 메시지 비즈니스 로직을 처리하는 Service
 import com.workhelper.domain.consultation.service.ConsultationMessageService;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,60 +10,67 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 
-// REST API Controller
-// 클라이언트의 HTTP 요청을 받아 Service로 전달하고 결과를 응답
+// ============================================================
+// 상담 메시지 REST API Controller
+// 클라이언트의 HTTP 요청을 받아 Service로 전달하고
+// 처리 결과를 HTTP 응답으로 반환
+// ============================================================
 @RestController
-
-// 상담 메시지 API의 기본 URL
-// 예: /api/cases/1/messages
-@RequestMapping("/api/cases/{caseId}/messages")
-
-// final 필드인 Service를 생성자를 통해 자동 주입
 @RequiredArgsConstructor
+@RequestMapping("/api/cases/{caseId}/messages")
 public class ConsultationMessageController {
 
+    // ============================================================
     // 상담 메시지 관련 비즈니스 로직을 담당하는 Service
+    // ============================================================
     private final ConsultationMessageService consultationMessageService;
 
 
     // ============================================================
     // 상담 메시지 조회 API
+    //
     // GET /api/cases/{caseId}/messages
+    //
+    // 특정 사건에 연결된 상담 메시지 목록을 조회
     // ============================================================
-
     @GetMapping
     public ResponseEntity<List<ConsultationMessageResponseDto>> getMessages(
             // URL의 {caseId} 값을 Long 타입으로 전달받음
-            @PathVariable Long caseId) {
+            @PathVariable Long caseId
+    ) {
 
-        // 해당 사건(caseId)에 연결된 상담 메시지 목록을 Service에서 조회
+        // 특정 사건의 상담 메시지 목록을 Service에 요청
         List<ConsultationMessageResponseDto> response =
                 consultationMessageService.getMessages(caseId);
 
-        // 조회한 상담 메시지 목록을 HTTP 200 OK로 반환
+        // 조회 결과를 HTTP 200 OK로 반환
         return ResponseEntity.ok(response);
     }
 
 
     // ============================================================
     // 상담 메시지 전송 API
+    //
     // POST /api/cases/{caseId}/messages
+    //
+    // 특정 사건에 사용자가 입력한 상담 메시지를 전달
     // ============================================================
-
     @PostMapping
     public ResponseEntity<ConsultationMessageResponseDto> sendMessage(
-            // URL의 {caseId}를 전달받아 어느 사건의 상담인지 확인
+            // URL의 {caseId}를 전달받아
+            // 어느 사건에 대한 상담인지 식별
             @PathVariable Long caseId,
 
-            // 클라이언트가 보낸 상담 메시지 내용을 Request DTO로 전달받음
-            @RequestBody ConsultationMessageRequestDto requestDto) {
+            // 요청 Body의 메시지 내용을
+            // Request DTO로 전달받음
+            @RequestBody ConsultationMessageRequestDto requestDto
+    ) {
 
-        // Service에 사건 ID와 메시지 내용을 전달하여
-        // 상담 메시지 저장 및 AI 응답 처리
+        // 사건 ID와 상담 메시지 내용을 Service에 전달
         ConsultationMessageResponseDto response =
                 consultationMessageService.sendMessage(caseId, requestDto);
 
-        // 처리된 상담 메시지 결과를 HTTP 200 OK로 반환
+        // 처리 결과를 HTTP 200 OK로 반환
         return ResponseEntity.ok(response);
     }
 }

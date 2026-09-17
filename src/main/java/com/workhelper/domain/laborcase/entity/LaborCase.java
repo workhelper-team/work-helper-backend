@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
 
 // ============================================================
 // 노동 사건 Entity
@@ -14,57 +15,78 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "cases")
 @Getter
-
-// JPA에서 Entity 객체를 생성할 때 사용하는 기본 생성자
-// 외부에서 직접 호출하지 못하도록 protected로 설정
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LaborCase {
 
-
     // ============================================================
     // 노동 사건 고유 ID
-    // DB에서 새로운 사건이 생성될 때 자동으로 번호 생성
+    // DB: case_id
+    // PK / IDENTITY
+    //
+    // 사건이 저장될 때 DB에서 ID 자동 생성
     // ============================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "case_id")
     private Long id;
-
 
     // ============================================================
     // 사건 제목
-    // 반드시 값이 존재해야 하므로 nullable = false 설정
+    // DB: title
+    // VARCHAR(200) / NOT NULL
     // ============================================================
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false, length = 200)
     private String title;
-
 
     // ============================================================
     // 사건 카테고리
-    // 예: 부당해고, 임금체불, 직장 내 괴롭힘 등
+    // DB: category
+    // VARCHAR(50)
     // ============================================================
+    @Column(name = "category", length = 50)
     private String category;
-
 
     // ============================================================
     // 사건 상태
-    // 예: IN_PROGRESS, COMPLETED
-    // 반드시 값이 존재해야 하므로 nullable = false 설정
+    // DB: status
+    // VARCHAR(30) / NOT NULL
+    //
+    // 상태값은 설계서에서 정의된 값을 사용하며
+    // Entity에서 임의의 기본값을 지정하지 않음
     // ============================================================
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false, length = 30)
     private String status;
-
 
     // ============================================================
     // 사건 요약
-    // 긴 텍스트를 저장할 수 있도록 TEXT 타입으로 설정
+    // DB: summary
+    // TEXT
     // ============================================================
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
+    // ============================================================
+    // 사건 생성 일시
+    // DB: created_at
+    // TIMESTAMPTZ / NOT NULL
+    // DB 기본값: CURRENT_TIMESTAMP
+    // ============================================================
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt;
 
     // ============================================================
-    // Builder를 이용한 Entity 생성
-    // Service에서 필요한 값만 지정하여 LaborCase 객체 생성 가능
+    // 사건 수정 일시
+    // DB: updated_at
+    // TIMESTAMPTZ / NOT NULL
+    // DB 기본값: CURRENT_TIMESTAMP
+    // ============================================================
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt;
+
+    // ============================================================
+    // Entity 생성용 Builder
+    //
+    // DB에서 자동 생성되는 id와 생성/수정 일시는 받지 않음
     // ============================================================
     @Builder
     public LaborCase(
@@ -75,17 +97,14 @@ public class LaborCase {
     ) {
         this.title = title;
         this.category = category;
-
-        // 상태가 전달되지 않은 경우 기본값으로 IN_PROGRESS 사용
-        this.status = status != null ? status : "IN_PROGRESS";
-
+        this.status = status;
         this.summary = summary;
     }
 
-
     // ============================================================
     // 기존 노동 사건 정보 수정
-    // null이 아닌 값만 수정하여 기존 데이터를 유지
+    //
+    // 전달된 값이 null이 아닌 경우 해당 필드만 수정
     // ============================================================
     public void updateCase(
             String title,
@@ -93,17 +112,24 @@ public class LaborCase {
             String status,
             String summary
     ) {
+        // 제목이 전달된 경우 수정
+        if (title != null) {
+            this.title = title;
+        }
 
-        // 제목이 전달된 경우 제목 수정
-        if (title != null) this.title = title;
+        // 카테고리가 전달된 경우 수정
+        if (category != null) {
+            this.category = category;
+        }
 
-        // 카테고리가 전달된 경우 카테고리 수정
-        if (category != null) this.category = category;
+        // 상태가 전달된 경우 수정
+        if (status != null) {
+            this.status = status;
+        }
 
-        // 상태가 전달된 경우 상태 수정
-        if (status != null) this.status = status;
-
-        // 요약이 전달된 경우 요약 수정
-        if (summary != null) this.summary = summary;
+        // 요약이 전달된 경우 수정
+        if (summary != null) {
+            this.summary = summary;
+        }
     }
 }
