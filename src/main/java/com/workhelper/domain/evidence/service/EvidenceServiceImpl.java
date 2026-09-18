@@ -1,186 +1,143 @@
 package com.workhelper.domain.evidence.service;
 
-import com.workhelper.domain.evidence.client.AiAnalysisRequest;
-import com.workhelper.domain.evidence.client.AiAnalysisResult;
-import com.workhelper.domain.evidence.client.AiEvidenceAnalysisClient;
-import com.workhelper.domain.evidence.dto.EvidenceAnalysisResponse;
-import com.workhelper.domain.evidence.dto.EvidenceDeleteResponse;
-import com.workhelper.domain.evidence.dto.EvidenceDetailResponse;
-import com.workhelper.domain.evidence.dto.EvidenceSummaryResponse;
-import com.workhelper.domain.evidence.dto.EvidenceUploadResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.workhelper.domain.evidence.dto.*;
 import com.workhelper.domain.evidence.entity.AnalysisStatus;
 import com.workhelper.domain.evidence.entity.Evidence;
-import com.workhelper.domain.evidence.exception.EvidenceExceptions.CaseAccessDeniedException;
-import com.workhelper.domain.evidence.exception.EvidenceExceptions.CaseNotFoundException;
-import com.workhelper.domain.evidence.exception.EvidenceExceptions.EvidenceAnalysisFailedException;
-import com.workhelper.domain.evidence.exception.EvidenceExceptions.EvidenceNotFoundException;
-import com.workhelper.domain.evidence.exception.EvidenceExceptions.InvalidEvidenceFileException;
 import com.workhelper.domain.evidence.repository.EvidenceRepository;
-
-import com.workhelper.domain.laborcase.entity.Case;
-import com.workhelper.domain.laborcase.repository.CaseRepository;
-
+import com.workhelper.domain.laborcase.entity.LaborCase;
+import com.workhelper.domain.laborcase.repository.LaborCaseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.Set;
-
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
+/**
+ * Evidence의 업무 흐름을 조정합니다.
+ * 사건 확인, Storage 처리, Evidence DB 처리를 한 서비스에서 순서대로 관리합니다.
+ */
 public class EvidenceServiceImpl implements EvidenceService {
 
-    /** 허용 MIME 타입은 확장자가 아니라 업로드 요청의 Content-Type을 기준으로 검사한다. */
-    private static final Set<String> ALLOWED_MIME_TYPES = Set.of("image/png", "image/jpeg", "image/jpg");
-    private static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024;
-
     private final EvidenceRepository evidenceRepository;
-    private final CaseRepository caseRepository;
-    private final EvidenceFailureRecorder evidenceFailureRecorder;
-    private final EvidenceStorageService storageService;
-    private final AiEvidenceAnalysisClient aiEvidenceAnalysisClient;
+    private final LaborCaseRepository laborCaseRepository;
+    private final EvidenceStorageService evidenceStorageService;
+    private final ObjectMapper objectMapper;
 
+        /** Storage에 파일을 저장한 뒤 반환된 Object Key와 메타데이터를 DB에 저장합니다. */
     @Override
     @Transactional
-    public EvidenceUploadResponse uploadEvidence(Long caseId, MultipartFile file, String description, Long requestUserId) {
-        // 1. 사건을 조회한다. 사건이 없으면 파일을 저장하기 전에 즉시 종료한다.
-        // 파일을 저장하기 전에 사건 존재 여부와 요청 사용자의 소유권을 확인한다.
-        // 저장소와 DB 작업 중 하나만 성공하면 불일치가 생길 수 있으므로, 운영 S3 구현에서는
-        // 실패 시 보상 삭제 또는 업로드 후 DB 저장 정책을 별도로 정의해야 한다.
-        Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new CaseNotFoundException(caseId));
+    public EvidenceUploadResponse uploadEvidence(Long caseId, MultipartFile file, String description) {
+        // 1. 먼저 연결할 사건이 실제로 존재하는지 확인합니다.
+        LaborCase laborCase = laborCaseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
 
-        // 2. 다른 사용자의 사건에 파일을 올리지 못하도록 소유권을 확인한다.
-        validateOwnership(targetCase, requestUserId);
-        // 3. 빈 파일, 허용하지 않은 형식, 너무 큰 파일을 차단한다.
-        validateFile(file);
+        // 2. 파일 본문은 Storage에 저장하고 DB에 기록할 Object Key를 받습니다.
+        String objectKey = evidenceStorageService.store(file);
 
-        // 4. 파일을 로컬 디스크 또는 S3에 저장하고, 저장 위치를 반환받는다.
-        String storagePath = storageService.store(file, caseId);
-
-        // 현재 description은 API 입력으로 받지만 Evidence 엔티티에 저장할 필드가 없어 버려진다.
-        // 제품 요구사항에서 설명을 보존해야 한다면 엔티티, 마이그레이션, 응답 DTO를 함께 추가해야 한다.
+        // 3. Object Key와 업로드 정보를 Evidence로 저장합니다.
         Evidence evidence = Evidence.builder()
-                .targetCase(targetCase)
+                .laborCase(laborCase)
                 .originalName(file.getOriginalFilename())
-                .storagePath(storagePath)
                 .mimeType(file.getContentType())
+                .description(description)
+                .storagePath(objectKey) // URL이 아닌 Object Key 저장
+                .analysisStatus(AnalysisStatus.PENDING)
                 .build();
 
-        // 5. 파일 위치와 분석 상태만 DB에 저장한다. 이미지 바이너리 자체는 DB에 저장하지 않는다.
-        Evidence saved = evidenceRepository.save(evidence);
+        Evidence savedEvidence = evidenceRepository.save(evidence);
 
         return new EvidenceUploadResponse(
-                saved.getEvidenceId(),
-                saved.getOriginalName(),
-                saved.getMimeType(),
-                saved.getAnalysisStatus().name()
+                savedEvidence.getEvidenceId(),
+                savedEvidence.getOriginalName(),
+                savedEvidence.getMimeType(),
+                savedEvidence.getDescription(),
+                savedEvidence.getAnalysisStatus().name(),
+                savedEvidence.getCreatedAt()
         );
     }
 
-    private void validateOwnership(Case targetCase, Long requestUserId) {
-        if (!targetCase.getUser().getUserId().equals(requestUserId)) {
-            throw new CaseAccessDeniedException(targetCase.getCaseId());
-        }
-    }
-
-    private void validateFile(MultipartFile file) {
-        // MIME 타입만으로는 악성 파일의 실제 형식을 완전히 검증할 수 없다.
-        // 운영 환경에서는 파일 시그니처 검사와 S3 업로드 후 바이러스 검사도 고려한다.
-        if (file == null || file.isEmpty()) {
-            throw new InvalidEvidenceFileException("업로드할 파일이 없습니다.");
-        }
-        if (!ALLOWED_MIME_TYPES.contains(file.getContentType())) {
-            throw new InvalidEvidenceFileException("지원하지 않는 파일 형식입니다: " + file.getContentType());
-        }
-        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new InvalidEvidenceFileException("파일 크기가 제한(10MB)을 초과했습니다.");
-        }
-    }
-
+        /**
+         * 증거 분석을 시작하고 분석 결과를 응답합니다.
+         * FastAPI Client가 연결되면 PROCESSING 저장 후 최종 COMPLETED/FAILED 결과를 반영하는 지점입니다.
+         */
     @Override
     @Transactional
-    public EvidenceAnalysisResponse analyzeEvidence(Long caseId, Long evidenceId, Long requestUserId) {
-        // 사건 ID와 증거 ID를 함께 조건으로 사용해 다른 사건의 증거가 조회되지 않도록 한다.
-        Evidence evidence = evidenceRepository.findByEvidenceIdAndTargetCase_CaseId(evidenceId, caseId)
-                .orElseThrow(() -> new EvidenceNotFoundException(evidenceId));
+    public EvidenceAnalysisResponse analyzeEvidence(Long caseId, Long evidenceId) {
+        Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
 
-        validateOwnership(evidence.getTargetCase(), requestUserId);
+        // 외부 분석 요청 전에 재조회 시에도 진행 중임을 알 수 있도록 상태를 먼저 저장합니다.
+        evidence.updateAnalysisStatus(AnalysisStatus.PROCESSING);
+        evidenceRepository.saveAndFlush(evidence);
 
-        AiAnalysisResult result;
-        try {
-            // AI 서버 호출은 외부 시스템 의존성을 가지므로, 실패한 분석을 별도 트랜잭션에서
-            // FAILED로 기록한 뒤 표준 502 오류로 변환한다.
-            result = aiEvidenceAnalysisClient.analyze(
-                    new AiAnalysisRequest(evidence.getEvidenceId(), evidence.getStoragePath(), evidence.getMimeType())
-            );
-        } catch (Exception e) {
-            evidenceFailureRecorder.markAsFailed(evidenceId);
-            throw new EvidenceAnalysisFailedException(evidenceId, e);
-        }
-
-        // AI가 반환한 결과를 엔티티에 반영한다. 트랜잭션이 끝나면 JPA가 변경 내용을 UPDATE한다.
-        evidence.applyAnalysisResult(result.extractedText(), result.analysisResultJson(), AnalysisStatus.COMPLETED);
+        /* 
+         * FastAPI Client는 별도 담당 영역입니다.
+         * Client 연결 후 성공하면 updateAnalysisResult(..., COMPLETED), 실패하면 FAILED를 저장합니다.
+         */
 
         return new EvidenceAnalysisResponse(
                 evidence.getEvidenceId(),
                 evidence.getExtractedText(),
-                evidence.getAnalysisResult(),
+                evidence.getAnalysisResult(), // JsonNode 타입
                 evidence.getAnalysisStatus().name()
         );
     }
 
+        /** 사건에 속한 Evidence를 페이징 조회하고 목록 응답으로 변환합니다. */
     @Override
-    @Transactional(readOnly = true)
-    public List<EvidenceSummaryResponse> getEvidences(Long caseId, Long requestUserId) {
-        // 목록 조회도 먼저 사건 소유권을 확인한 뒤 해당 사건의 증거만 반환한다.
-        Case targetCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new CaseNotFoundException(caseId));
-        validateOwnership(targetCase, requestUserId);
+    public Page<EvidenceSummaryResponse> getEvidences(Long caseId, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<Evidence> evidencePage = evidenceRepository.findByLaborCase_CaseId(caseId, pageable);
 
-        return evidenceRepository.findByTargetCase_CaseIdOrderByCreatedAtDesc(caseId).stream()
-                .map(e -> new EvidenceSummaryResponse(
-                        e.getEvidenceId(),
-                        e.getOriginalName(),
-                        e.getMimeType(),
-                        e.getAnalysisStatus().name(),
-                        e.getCreatedAt()
-                ))
-                .toList();
+        return evidencePage.map(evidence -> new EvidenceSummaryResponse(
+                evidence.getEvidenceId(),
+                evidence.getOriginalName(),
+                evidence.getMimeType(),
+                evidence.getDescription(),
+                evidence.getAnalysisStatus().name(),
+                evidence.getCreatedAt()
+        ));
     }
 
+        /** Evidence 메타데이터와 Storage 접근용 fileUrl을 함께 반환합니다. */
     @Override
-    @Transactional(readOnly = true)
-    public EvidenceDetailResponse getEvidenceDetail(Long caseId, Long evidenceId, Long requestUserId) {
-        Evidence evidence = evidenceRepository.findByEvidenceIdAndTargetCase_CaseId(evidenceId, caseId)
-                .orElseThrow(() -> new EvidenceNotFoundException(evidenceId));
-        validateOwnership(evidence.getTargetCase(), requestUserId);
+    public EvidenceDetailResponse getEvidenceDetail(Long caseId, Long evidenceId) {
+        Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
+
+        // DB에는 Object Key만 있으므로 응답용 접근 경로는 Storage에서 생성합니다.
+        String fileUrl = evidenceStorageService.getFileUrl(evidence.getStoragePath());
 
         return new EvidenceDetailResponse(
                 evidence.getEvidenceId(),
                 evidence.getOriginalName(),
                 evidence.getMimeType(),
+                evidence.getDescription(),
+                fileUrl,
                 evidence.getExtractedText(),
-                evidence.getAnalysisResult(),
+                evidence.getAnalysisResult(), // JsonNode 타입
                 evidence.getAnalysisStatus().name(),
                 evidence.getCreatedAt()
         );
     }
 
+        /** 소유권 확인 후 Storage 파일과 DB Evidence를 순서대로 물리 삭제합니다. */
     @Override
     @Transactional
-    public EvidenceDeleteResponse deleteEvidence(Long caseId, Long evidenceId, Long requestUserId) {
-        // DB 레코드 삭제 전에 파일을 삭제한다. S3 전환 시 삭제 실패 정책(재시도 큐 또는
-        // 고아 객체 정리 작업)을 정하지 않으면 DB와 저장소가 서로 다른 상태가 될 수 있다.
-        Evidence evidence = evidenceRepository.findByEvidenceIdAndTargetCase_CaseId(evidenceId, caseId)
-                .orElseThrow(() -> new EvidenceNotFoundException(evidenceId));
-        validateOwnership(evidence.getTargetCase(), requestUserId);
+    public void deleteEvidence(Long caseId, Long evidenceId) {
+        // 1. 사건과 Evidence의 연결을 확인해 다른 사건의 파일을 삭제하지 않도록 합니다.
+        Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
+                .orElseThrow(() -> new IllegalArgumentException("삭제 권한이 없거나 존재하지 않는 증거입니다."));
 
-        storageService.delete(evidence.getStoragePath());
+        // 2. DB에 저장된 Object Key로 실제 파일을 먼저 삭제합니다.
+        evidenceStorageService.delete(evidence.getStoragePath());
+
+        // 3. Storage 삭제가 성공한 경우에만 DB 레코드를 삭제합니다.
         evidenceRepository.delete(evidence);
-
-        return new EvidenceDeleteResponse(evidenceId, "DELETED");
     }
 }

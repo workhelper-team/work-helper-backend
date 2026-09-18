@@ -5,18 +5,17 @@ package com.workhelper.domain.evidence.repository;
 import com.workhelper.domain.evidence.entity.Evidence;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 
+/** Evidence와 기존 LaborCase의 관계를 기준으로 조회하는 Repository입니다. */
 public interface EvidenceRepository extends JpaRepository<Evidence, Long> {
 
-    List<Evidence> findByTargetCase_CaseId(Long caseId);
+    Page<Evidence> findByLaborCase_CaseId(Long caseId, Pageable pageable);
 
-    // 목록을 최신순으로 정렬해서 가져오기
-    List<Evidence> findByTargetCase_CaseIdOrderByCreatedAtDesc(Long caseId);
-
-    Optional<Evidence> findByEvidenceIdAndTargetCase_CaseId(Long evidenceId, Long caseId);
+    Optional<Evidence> findByEvidenceIdAndLaborCase_CaseId(Long evidenceId, Long caseId);
 
 
 }

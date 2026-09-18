@@ -8,30 +8,56 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/legal-documents")
 @RequiredArgsConstructor
+/**
+ * 법률자료 외부 API를 제공합니다.
+ * 검색은 외부 검색 결과를 전달받는 구조이고, 상세조회는 Spring DB 조회를 사용합니다.
+ */
 public class LegalDocumentController {
 
     private final LegalDocumentService legalDocumentService;
 
-    /**
-     * API-LEGAL-001: 법률자료 검색
-     * 인증은 global.security의 전역 설정(예: Spring Security에서 "/api/**" 인증 요구)으로
-     * 처리된다고 가정 — 이 API는 사건 소유권 같은 개별 검증이 필요 없어 별도 인증 코드는 없음.
-     */
-    @GetMapping
-    public ResponseEntity<Page<LegalDocumentSummaryResponse>> searchLegalDocuments(
-            @RequestParam String query,
-            @RequestParam(required = false) String sourceType,
-            @RequestParam(required = false) Integer page
+    // Spring Page를 외부 API에서 사용하는 명시적 페이징 응답으로 변환합니다.
+    public record PageResult<T>(
+            List<T> content,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean last
     ) {
-        return ResponseEntity.ok(legalDocumentService.searchLegalDocuments(query, sourceType, page));
+        public static <T> PageResult<T> from(Page<T> pageData) {
+            return new PageResult<>(
+                    pageData.getContent(),
+                    pageData.getNumber(),
+                    pageData.getSize(),
+                    pageData.getTotalElements(),
+                    pageData.getTotalPages(),
+                    pageData.isLast()
+            );
+        }
     }
 
-    /**
-     * API-LEGAL-002: 법률자료 상세 조회
-     */
+    @GetMapping
+    public ResponseEntity<PageResult<LegalDocumentSummaryResponse>> searchLegalDocuments(
+            @RequestParam String query,
+            @RequestParam(required = false) String sourceType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        int validSize = Math.min(size, 100);
+        
+        // 검색 결과를 API 응답 규격으로 변환합니다.
+        Page<LegalDocumentSummaryResponse> searchResult = 
+                legalDocumentService.searchLegalDocuments(query, sourceType, page, validSize);
+                
+        return ResponseEntity.ok(PageResult.from(searchResult));
+    }
+
     @GetMapping("/{legalDocumentId}")
     public ResponseEntity<LegalDocumentDetailResponse> getLegalDocumentDetail(
             @PathVariable Long legalDocumentId

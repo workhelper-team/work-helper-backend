@@ -7,16 +7,12 @@ import org.springframework.data.domain.Page;
 public interface LegalDocumentService {
 
     /**
-     * API-LEGAL-001: 법률자료 검색
-     *
-     * @param query      검색어 (필수)
-     * @param sourceType LAW / PRECEDENT / INTERPRETATION / LABOR_COMMISSION 등 (선택)
-     * @param page       0부터 시작하는 페이지 번호 (선택, 기본 0)
+     * 법률자료 검색 (FastAPI 검색 결과를 받아 Page 객체로 반환)
      */
-    Page<LegalDocumentSummaryResponse> searchLegalDocuments(String query, String sourceType, Integer page);
+    Page<LegalDocumentSummaryResponse> searchLegalDocuments(String query, String sourceType, int page, int size);
 
     /**
-     * API-LEGAL-002: 법률자료 상세 조회
+     * 법률자료 상세조회 (Spring DB 직접 조회)
      */
     LegalDocumentDetailResponse getLegalDocumentDetail(Long legalDocumentId);
 }

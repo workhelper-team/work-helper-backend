@@ -1,5 +1,6 @@
 package com.workhelper.domain.legal.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,11 +44,9 @@ public class LegalDocument {
     @Column(name = "source_url", columnDefinition = "TEXT")
     private String sourceUrl;
 
-    // JSONB: 별도 타입 매핑 라이브러리 도입 전까지는 String으로 우선 관리
-   // @Lob
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
+    private JsonNode metadata;
 
     @Column(name = "synced_at", nullable = false)
     private OffsetDateTime syncedAt;

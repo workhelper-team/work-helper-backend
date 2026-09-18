@@ -26,6 +26,6 @@ public class EvidenceFailureRecorder {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markAsFailed(Long evidenceId) {
         evidenceRepository.findById(evidenceId)
-                .ifPresent(evidence -> evidence.applyAnalysisResult(null, null, AnalysisStatus.FAILED));
+                .ifPresent(evidence -> evidence.updateAnalysisResult(null, null, AnalysisStatus.FAILED));
     }
 }

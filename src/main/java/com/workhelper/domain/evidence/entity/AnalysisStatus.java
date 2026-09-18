@@ -7,6 +7,7 @@ package com.workhelper.domain.evidence.entity;
  */
 public enum AnalysisStatus {
     PENDING,
+    PROCESSING,
     COMPLETED,
     FAILED
 }
