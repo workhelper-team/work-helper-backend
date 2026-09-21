@@ -1,11 +1,14 @@
 package com.workhelper.domain.consultation.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 
@@ -62,11 +65,12 @@ public class ConsultationMessage {
 
     // ============================================================
     // AI 답변의 구조화된 결과
-    // DB: structured_result
+    // DB: structured_result (JSONB)
     // ============================================================
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "structured_result", columnDefinition = "JSONB")
-    private String structuredResult;
+    private JsonNode structuredResult;
 
     // ============================================================
     // 메시지 생성 시각
@@ -90,7 +94,7 @@ public class ConsultationMessage {
             LaborCase laborCase,
             MessageRole role,
             String content,
-            String structuredResult
+            JsonNode structuredResult
     ) {
         this.laborCase = laborCase;
         this.role = role;
@@ -98,3 +102,4 @@ public class ConsultationMessage {
         this.structuredResult = structuredResult;
     }
 }
+

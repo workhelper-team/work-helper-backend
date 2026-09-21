@@ -22,11 +22,24 @@ public class ConsultationMessageService {
     private final ConsultationMessageRepository consultationMessageRepository;
     private final LaborCaseRepository laborCaseRepository;
 
-    public List<ConsultationMessageResponseDto> getMessages(Long caseId) {
+    public List<ConsultationMessageResponseDto> getMessages(
+            Long caseId,
+            Long userId
+    ) {
+        // 현재 로그인한 사용자가 해당 사건의 소유자인지 확인
+        LaborCase laborCase = laborCaseRepository
+                .findByCaseIdAndUserId(caseId, userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "해당 사건에 접근할 권한이 없습니다. ID: " + caseId
+                        )
+                );
 
         List<ConsultationMessage> messages =
                 consultationMessageRepository
-                        .findByLaborCase_CaseIdOrderByCreatedAtAsc(caseId);
+                        .findByLaborCase_CaseIdOrderByCreatedAtAsc(
+                                laborCase.getCaseId()
+                        );
 
         return messages.stream()
                 .map(ConsultationMessageResponseDto::new)
@@ -36,13 +49,15 @@ public class ConsultationMessageService {
     @Transactional
     public ConsultationMessageResponseDto sendMessage(
             Long caseId,
+            Long userId,
             ConsultationMessageRequestDto requestDto
     ) {
-
-        LaborCase laborCase = laborCaseRepository.findById(caseId)
+        // 현재 로그인한 사용자가 해당 사건의 소유자인지 확인
+        LaborCase laborCase = laborCaseRepository
+                .findByCaseIdAndUserId(caseId, userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
-                                "해당 사건을 찾을 수 없습니다. ID: " + caseId
+                                "해당 사건에 접근할 권한이 없습니다. ID: " + caseId
                         )
                 );
 
