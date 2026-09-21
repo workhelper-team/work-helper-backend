@@ -5,5 +5,5 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/workhelper}
-    username: ${postgres}
-    password: ${helper1234!}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:example-password}
