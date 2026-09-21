@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
 
 import java.util.List;
 
@@ -51,33 +53,38 @@ public class ExpertQuestionController {
 
     @PostMapping
     public ResponseEntity<ExpertQuestionResponse> createQuestion(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @RequestBody ExpertQuestionRequest request
     ) {
         // caseId와 요청 내용을 서비스에 전달하고, 생성되면 201 Created를 반환합니다.
-        ExpertQuestionResponse response = expertQnaService.createQuestion(caseId, request);
+        ExpertQuestionResponse response = expertQnaService.createQuestion(principal.getUserId(), caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
     public ResponseEntity<PageResult<ExpertQuestionSummaryResponse>> getMyQuestions(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         // 페이지 번호와 크기를 먼저 검사한 뒤 해당 사건의 질문 목록을 조회합니다.
         validatePagination(page, size);
-        Page<ExpertQuestionSummaryResponse> pageData = expertQnaService.getMyQuestions(caseId, page, size);
+        Page<ExpertQuestionSummaryResponse> pageData = expertQnaService.getMyQuestions(
+            principal.getUserId(), caseId, page, size);
         return ResponseEntity.ok(PageResult.from(pageData));
     }
 
     @GetMapping("/{questionId}")
     public ResponseEntity<ExpertQuestionDetailResponse> getMyQuestionDetail(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @PathVariable Long questionId
     ) {
         // caseId와 questionId가 모두 일치하는 질문의 상세 정보를 조회합니다.
-        return ResponseEntity.ok(expertQnaService.getMyQuestionDetail(caseId, questionId));
+        return ResponseEntity.ok(expertQnaService.getMyQuestionDetail(
+            principal.getUserId(), caseId, questionId));
     }
 
     // 잘못된 페이지 요청으로 DB를 조회하지 않도록 컨트롤러에서 공통 검사합니다.

@@ -5,9 +5,8 @@ import com.workhelper.domain.expert.entity.ExpertAnswer;
 import com.workhelper.domain.expert.entity.ExpertProfile;   // ⚠️ 실제 패키지 확인 필요
 import com.workhelper.domain.expert.entity.ExpertQuestion;
 import com.workhelper.domain.expert.entity.QuestionStatus;
-import com.workhelper.domain.expert.entity.ExpertStatus;    // ⚠️ 실제 Enum명 확인 필요 (PENDING/APPROVED/REJECTED)
 import com.workhelper.domain.expert.repository.ExpertAnswerRepository;
-import com.workhelper.domain.expert.repository.ExpertProfileRepository; // ⚠️ 실제 위치 확인 필요
+import com.workhelper.domain.expert.repository.ExpertRepository;
 import com.workhelper.domain.expert.repository.ExpertQuestionRepository;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import com.workhelper.domain.laborcase.repository.LaborCaseRepository;
@@ -35,15 +34,14 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
         // 질문이 연결될 사건을 조회하는 Repository입니다.
     private final LaborCaseRepository laborCaseRepository;
         // 로그인한 사용자가 전문가인지와 전문가 상태를 확인하는 Repository입니다.
-    private final ExpertProfileRepository expertProfileRepository;
+        private final ExpertRepository expertRepository;
 
     // ===== 사용자용 (F-QA-001, F-QA-002) =====
 
     @Override
     @Transactional
-    public ExpertQuestionResponse createQuestion(Long caseId, ExpertQuestionRequest request) {
-                // 먼저 질문을 연결할 사건이 실제로 존재하는지 확인합니다.
-        LaborCase laborCase = laborCaseRepository.findById(caseId)
+        public ExpertQuestionResponse createQuestion(Long userId, Long caseId, ExpertQuestionRequest request) {
+                LaborCase laborCase = laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
 
         // 요청 DTO의 값을 Entity로 옮겨 새 질문 객체를 만듭니다.
@@ -68,7 +66,9 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
     }
 
     @Override
-    public Page<ExpertQuestionSummaryResponse> getMyQuestions(Long caseId, int page, int size) {
+        public Page<ExpertQuestionSummaryResponse> getMyQuestions(Long userId, Long caseId, int page, int size) {
+                laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
+                                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
                 // PageRequest는 0부터 시작하는 페이지 번호와 한 페이지 크기를 묶습니다.
         PageRequest pageable = PageRequest.of(page, size);
                 // Repository가 사건 ID에 해당하는 질문만 페이지 단위로 조회합니다.
@@ -78,7 +78,9 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
     }
 
     @Override
-    public ExpertQuestionDetailResponse getMyQuestionDetail(Long caseId, Long questionId) {
+        public ExpertQuestionDetailResponse getMyQuestionDetail(Long userId, Long caseId, Long questionId) {
+                laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
+                                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
                 // 질문 ID뿐 아니라 사건 ID도 함께 검사해 다른 사건의 질문이 노출되지 않도록 합니다.
         ExpertQuestion question = expertQuestionRepository.findByQuestionIdAndLaborCase_CaseId(questionId, caseId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사건의 질문을 찾을 수 없습니다."));
@@ -90,13 +92,23 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
     // ===== 전문가용 (F-QA-003, F-QA-004, F-QA-005) =====
 
     @Override
-    public Page<ExpertQuestionSummaryResponse> getQuestionsForExpert(Long userId, int page, int size) {
+        public Page<ExpertQuestionSummaryResponse> getQuestionsForExpert(Long userId, String status, int page, int size) {
                 // 목록을 보여주기 전에 로그인한 사용자가 승인된 전문가인지 확인합니다.
         getApprovedExpertProfile(userId); // 승인된 노무사인지만 확인
 
         // 현재는 모든 질문을 페이지 단위로 조회합니다.
         PageRequest pageable = PageRequest.of(page, size);
-        return expertQuestionRepository.findAll(pageable).map(this::toSummaryResponse);
+                if (status == null || status.isBlank()) {
+                        return expertQuestionRepository.findAll(pageable).map(this::toSummaryResponse);
+                }
+
+                QuestionStatus questionStatus;
+                try {
+                        questionStatus = QuestionStatus.valueOf(status.toUpperCase());
+                } catch (IllegalArgumentException exception) {
+                        throw new IllegalArgumentException("유효하지 않은 질문 상태입니다: " + status, exception);
+                }
+                return expertQuestionRepository.findByStatus(questionStatus, pageable).map(this::toSummaryResponse);
     }
 
     @Override
@@ -159,11 +171,11 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
     private ExpertProfile getApprovedExpertProfile(Long userId) {
                 // 인증된 사용자 ID로 전문가 프로필을 찾습니다.
         // ⚠️ findByUser_UserId 메서드명은 실제 ExpertProfileRepository에 맞게 확인 필요
-        ExpertProfile expertProfile = expertProfileRepository.findByUser_UserId(userId)
+        ExpertProfile expertProfile = expertRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("노무사 정보를 찾을 수 없습니다."));
 
         // 전문가 프로필이 없거나 승인 상태가 아니면 전문가 기능을 사용할 수 없습니다.
-        if (expertProfile.getStatus() != ExpertStatus.APPROVED) {
+        if (!"APPROVED".equals(expertProfile.getStatus())) {
             throw new IllegalStateException("승인된 노무사만 이용할 수 있는 기능입니다.");
         }
         return expertProfile;
@@ -176,6 +188,8 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
                 question.getLaborCase().getCaseId(),
                 question.getTitle(),
                 question.getStatus().name(),
+                question.getLaborCase().getCategory(),
+                expertAnswerRepository.countByExpertQuestion_QuestionId(question.getQuestionId()),
                 question.getCreatedAt()
         );
     }

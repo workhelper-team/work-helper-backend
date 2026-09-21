@@ -2,6 +2,7 @@ package com.workhelper.domain.expert.controller;
 
 import com.workhelper.domain.expert.dto.*;
 import com.workhelper.domain.expert.service.ExpertQnaService;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -16,8 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 /**
  * 승인된 노무사의 질문 목록/상세 조회 및 답변 등록 API 입구입니다. (F-QA-003~005)
- * @AuthenticationPrincipal Long userId는 임시 가정입니다.
- *    공통 인증 유틸이 확정되면 이 파라미터 타입만 교체예정.
+ * JWT 인증 principal에서 userId를 받아 전문가 권한을 확인합니다.
  */
 public class ExpertQnaController {
 
@@ -54,33 +54,37 @@ public class ExpertQnaController {
 
     @GetMapping
     public ResponseEntity<PageResult<ExpertQuestionSummaryResponse>> getQuestionsForExpert(
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         // 인증 객체에서 받은 사용자 식별자를 서비스에 전달합니다.
         validatePagination(page, size);
-        Page<ExpertQuestionSummaryResponse> pageData = expertQnaService.getQuestionsForExpert(userId, page, size);
+        Page<ExpertQuestionSummaryResponse> pageData = expertQnaService.getQuestionsForExpert(
+            principal.getUserId(), status, page, size);
         return ResponseEntity.ok(PageResult.from(pageData));
     }
 
     @GetMapping("/{questionId}")
     public ResponseEntity<ExpertQuestionDetailResponse> getQuestionDetailForExpert(
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long questionId
     ) {
         // 전문가 권한을 확인한 뒤 질문 하나의 상세 정보를 반환합니다.
-        return ResponseEntity.ok(expertQnaService.getQuestionDetailForExpert(userId, questionId));
+        return ResponseEntity.ok(expertQnaService.getQuestionDetailForExpert(
+            principal.getUserId(), questionId));
     }
 
     @PostMapping("/{questionId}/answers")
     public ResponseEntity<ExpertAnswerResponse> createAnswer(
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long questionId,
             @RequestBody ExpertAnswerRequest request
     ) {
         // 전문가 권한을 확인한 뒤 해당 질문에 답변을 등록합니다.
-        ExpertAnswerResponse response = expertQnaService.createAnswer(userId, questionId, request);
+        ExpertAnswerResponse response = expertQnaService.createAnswer(
+            principal.getUserId(), questionId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
