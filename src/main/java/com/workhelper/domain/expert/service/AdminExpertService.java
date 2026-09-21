@@ -7,6 +7,8 @@ import com.workhelper.domain.expert.repository.ExpertRepository;
 import com.workhelper.infra.storage.EvidenceStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +64,15 @@ public class AdminExpertService {
                         new IllegalArgumentException("존재하지 않는 노무사 신청 정보입니다."));
 
         return evidenceStorageService.load(profile.getLicenseFile());
+    }
+
+    public MediaType getLicenseFileMediaType(Long expertId) {
+        ExpertProfile profile = expertRepository.findById(
+                Objects.requireNonNull(expertId, "expertId는 필수입니다."))
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 노무사 신청 정보입니다."));
+
+        return MediaTypeFactory.getMediaType(profile.getLicenseFile())
+                .orElse(MediaType.APPLICATION_OCTET_STREAM);
     }
 
 

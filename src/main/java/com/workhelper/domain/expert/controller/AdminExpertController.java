@@ -4,6 +4,7 @@ import com.workhelper.domain.expert.dto.AdminExpertDto;
 import com.workhelper.domain.expert.service.AdminExpertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +37,11 @@ public class AdminExpertController {
     @GetMapping("/{expertId}/license-file")
     public ResponseEntity<Resource> getLicenseFile(@PathVariable Long expertId) {
         Resource fileResource = adminExpertService.loadLicenseFile(expertId);
-        return ResponseEntity.ok(fileResource);
+        MediaType mediaType = adminExpertService.getLicenseFileMediaType(expertId);
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header("Content-Disposition", "inline")
+                .body(fileResource);
     }
 
     // API-ADM-004: 노무사 가입 승인/거절 (복수 선택 처리)

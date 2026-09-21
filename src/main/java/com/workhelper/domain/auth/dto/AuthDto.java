@@ -3,6 +3,7 @@ package com.workhelper.domain.auth.dto;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,6 +23,7 @@ public class AuthDto { // 필요하다면 클래스명을 AuthRequest로 변경�
         private String email;
 
         @NotBlank(message = "비밀번호는 필수입니다.")
+        @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,}$", message = "비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.")
         private String password;
 
         @NotBlank(message = "이름은 필수입니다.")
@@ -40,6 +42,7 @@ public class AuthDto { // 필요하다면 클래스명을 AuthRequest로 변경�
         private String email;
 
         @NotBlank(message = "비밀번호는 필수입니다.")
+        @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)\\S{8,}$", message = "비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.")
         private String password;
 
         @NotBlank(message = "이름은 필수입니다.")

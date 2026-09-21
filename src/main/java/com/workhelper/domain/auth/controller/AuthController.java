@@ -45,4 +45,9 @@ public class AuthController {
         LoginResponse response = authService.login(dto);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/email-availability")
+    public ResponseEntity<Boolean> checkEmailAvailability(@RequestParam String email) {
+        return ResponseEntity.ok(authService.isEmailAvailable(email));
+    }
 }

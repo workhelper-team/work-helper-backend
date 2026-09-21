@@ -130,6 +130,10 @@ public class AuthService {
             new LoginResponse.UserInfo(
                 user.getUserId(), user.getEmail(), user.getName(), role));
     }
+
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
     
     //노무사인지 권한 확인
     private String resolveRole(String userRole, ExpertProfile expert) {
