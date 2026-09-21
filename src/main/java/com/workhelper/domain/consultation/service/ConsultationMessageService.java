@@ -26,7 +26,7 @@ public class ConsultationMessageService {
 
         List<ConsultationMessage> messages =
                 consultationMessageRepository
-                        .findByLaborCase_IdOrderByCreatedAtAsc(caseId);
+                        .findByLaborCase_CaseIdOrderByCreatedAtAsc(caseId);
 
         return messages.stream()
                 .map(ConsultationMessageResponseDto::new)
