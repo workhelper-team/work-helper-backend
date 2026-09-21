@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
 
@@ -28,7 +30,16 @@ public class LaborCase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "case_id")
-    private Long id;
+    private Long caseId;
+
+    // ============================================================
+    // 사용자 ID
+    // DB: user_id
+    // JWT 사용자와 사건 소유권 연결
+    // ============================================================
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     // ============================================================
     // 사건 제목
@@ -42,20 +53,22 @@ public class LaborCase {
     // ============================================================
     // 사건 카테고리
     // DB: category
-    // VARCHAR(50)
+    // MVP에서는 WAGE만 사용
     // ============================================================
 
-    @Column(name = "category", length = 50)
-    private String category;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false, length = 50)
+    private CaseCategory category;
 
     // ============================================================
     // 사건 상태
     // DB: status
-    // VARCHAR(30) / NOT NULL
+    // CREATED / IN_PROGRESS / CLOSED / ARCHIVED
     // ============================================================
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private CaseStatus status;
 
     // ============================================================
     // 사건 요약
@@ -70,36 +83,35 @@ public class LaborCase {
     // 사건 생성 일시
     // DB: created_at
     // TIMESTAMPTZ / NOT NULL
-    // DB 기본값: CURRENT_TIMESTAMP
     // ============================================================
 
-    @Column(name = "created_at", nullable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
     // ============================================================
     // 사건 수정 일시
     // DB: updated_at
     // TIMESTAMPTZ / NOT NULL
-    // DB 기본값: CURRENT_TIMESTAMP
     // ============================================================
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
     // ============================================================
     // Entity 생성용 Builder
-    //
-    // DB에서 자동 생성되는 id와
-    // 생성/수정 일시는 받지 않음
     // ============================================================
 
     @Builder
     public LaborCase(
+            Long userId,
             String title,
-            String category,
-            String status,
+            CaseCategory category,
+            CaseStatus status,
             String summary
     ) {
+        this.userId = userId;
         this.title = title;
         this.category = category;
         this.status = status;
@@ -108,16 +120,16 @@ public class LaborCase {
 
     // ============================================================
     // 기존 노동 사건 정보 수정
-    //
     // PATCH 요청에 맞춰 전달된 값만 수정
     // ============================================================
 
     public void updateCase(
             String title,
-            String category,
-            String status,
+            CaseCategory category,
+            CaseStatus status,
             String summary
     ) {
+
         if (title != null) {
             this.title = title;
         }

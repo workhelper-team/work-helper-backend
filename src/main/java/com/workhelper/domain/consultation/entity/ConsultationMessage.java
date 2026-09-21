@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 
 // ============================================================
 // 상담 메시지 Entity
+//
 // DB의 app.consultation_messages 테이블과 연결
 // ============================================================
 
@@ -44,17 +45,16 @@ public class ConsultationMessage {
     // ============================================================
     // 메시지를 보낸 역할
     // DB: role
-    // VARCHAR(20) / NOT NULL
     // USER / ASSISTANT
     // ============================================================
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
-    private String role;
+    private MessageRole role;
 
     // ============================================================
     // 메시지 내용
     // DB: content
-    // TEXT / NOT NULL
     // ============================================================
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
@@ -63,7 +63,6 @@ public class ConsultationMessage {
     // ============================================================
     // AI 답변의 구조화된 결과
     // DB: structured_result
-    // JSONB / NULL 허용
     // ============================================================
 
     @Column(name = "structured_result", columnDefinition = "JSONB")
@@ -72,10 +71,6 @@ public class ConsultationMessage {
     // ============================================================
     // 메시지 생성 시각
     // DB: created_at
-    // TIMESTAMPTZ / NOT NULL
-    // DB 기본값: CURRENT_TIMESTAMP
-    //
-    // INSERT 시 DB가 자동으로 생성하도록 설정
     // ============================================================
 
     @Column(
@@ -93,7 +88,7 @@ public class ConsultationMessage {
     @Builder
     public ConsultationMessage(
             LaborCase laborCase,
-            String role,
+            MessageRole role,
             String content,
             String structuredResult
     ) {

@@ -1,24 +1,21 @@
 package com.workhelper.domain.laborcase.service;
 
+import com.workhelper.domain.consultation.entity.ConsultationMessage;
+import com.workhelper.domain.consultation.entity.MessageRole;
+import com.workhelper.domain.consultation.repository.ConsultationMessageRepository;
 import com.workhelper.domain.laborcase.dto.LaborCaseRequestDto;
 import com.workhelper.domain.laborcase.dto.LaborCaseResponseDto;
 import com.workhelper.domain.laborcase.dto.LaborCaseUpdateRequestDto;
+import com.workhelper.domain.laborcase.entity.CaseCategory;
+import com.workhelper.domain.laborcase.entity.CaseStatus;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import com.workhelper.domain.laborcase.repository.LaborCaseRepository;
-
 import lombok.RequiredArgsConstructor;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-// ============================================================
-// 노동 사건 Service
-//
-// 노동 사건 생성, 조회, 수정 등의 비즈니스 로직을 담당
-// ============================================================
 
 @Service
 @RequiredArgsConstructor
@@ -26,64 +23,102 @@ import java.util.stream.Collectors;
 public class LaborCaseService {
 
     private final LaborCaseRepository laborCaseRepository;
+    private final ConsultationMessageRepository consultationMessageRepository;
 
     // ============================================================
     // 사건 생성
-    //
     // POST /api/cases
-    //
-    // 생성 요청에서는
-    // title, category, initialDescription을 전달받음
-    //
-    // 새로운 사건은 기본적으로 IN_PROGRESS 상태로 생성
     // ============================================================
-
     @Transactional
     public LaborCaseResponseDto createCase(
+            Long userId,
             LaborCaseRequestDto requestDto
     ) {
 
+        // 현재 MVP에서는 WAGE만 허용
+        if (requestDto.getCategory() != CaseCategory.WAGE) {
+            throw new IllegalArgumentException(
+                    "현재 지원하는 사건 유형은 WAGE입니다."
+            );
+        }
+
         LaborCase laborCase = LaborCase.builder()
+                .userId(userId)
                 .title(requestDto.getTitle())
                 .category(requestDto.getCategory())
-                .status("IN_PROGRESS")
-                .summary(requestDto.getInitialDescription())
+                .status(CaseStatus.CREATED)
                 .build();
 
-        LaborCase savedCase =
-                laborCaseRepository.save(laborCase);
+        LaborCase savedCase = laborCaseRepository.save(laborCase);
+
+        // initialDescription이 존재하면
+        // 사건의 첫 번째 USER 상담 메시지로 저장
+        if (requestDto.getInitialDescription() != null
+                && !requestDto.getInitialDescription().isBlank()) {
+
+            ConsultationMessage message =
+                    ConsultationMessage.builder()
+                            .laborCase(savedCase)
+                            .role(MessageRole.USER)
+                            .content(requestDto.getInitialDescription())
+                            .structuredResult(null)
+                            .build();
+
+            consultationMessageRepository.save(message);
+        }
 
         return new LaborCaseResponseDto(savedCase);
     }
 
     // ============================================================
     // 사건 목록 조회
-    //
     // GET /api/cases
-    //
-    // 현재는 전체 사건을 조회
-    //
-    // 사용자별 조회(user_id)는 User 연동 후 추가
     // ============================================================
+    public Page<LaborCaseResponseDto> getCases(
+            Long userId,
+            String status,
+            int page,
+            int size
+    ) {
 
-    public List<LaborCaseResponseDto> getCases() {
+        Pageable pageable = PageRequest.of(page, size);
 
-        return laborCaseRepository.findAll()
-                .stream()
-                .map(LaborCaseResponseDto::new)
-                .collect(Collectors.toList());
+        Page<LaborCase> cases;
+
+        if (status != null && !status.isBlank()) {
+
+            CaseStatus caseStatus =
+                    CaseStatus.valueOf(status.toUpperCase());
+
+            cases = laborCaseRepository.findByUserIdAndStatus(
+                    userId,
+                    caseStatus,
+                    pageable
+            );
+
+        } else {
+
+            cases = laborCaseRepository.findByUserId(
+                    userId,
+                    pageable
+            );
+        }
+
+        return cases.map(LaborCaseResponseDto::new);
     }
 
     // ============================================================
     // 사건 상세 조회
-    //
     // GET /api/cases/{caseId}
     // ============================================================
-
-    public LaborCaseResponseDto getCase(Long caseId) {
+    public LaborCaseResponseDto getCase(
+            Long caseId,
+            Long userId
+    ) {
 
         LaborCase laborCase =
-                laborCaseRepository.findById(caseId)
+                laborCaseRepository
+                        .findByCaseIdAndUserId(caseId, userId)
                         .orElseThrow(() ->
                                 new IllegalArgumentException(
                                         "해당 사건을 찾을 수 없습니다. ID: "
@@ -96,23 +131,18 @@ public class LaborCaseService {
 
     // ============================================================
     // 사건 정보 및 상태 수정
-    //
     // PATCH /api/cases/{caseId}
-    //
-    // title, category, status, summary는 모두 선택값
-    // null이 아닌 값만 수정
-    //
-    // 종료 및 보관 역시 status 변경으로 처리
     // ============================================================
-
     @Transactional
     public LaborCaseResponseDto updateCase(
             Long caseId,
+            Long userId,
             LaborCaseUpdateRequestDto requestDto
     ) {
 
         LaborCase laborCase =
-                laborCaseRepository.findById(caseId)
+                laborCaseRepository
+                        .findByCaseIdAndUserId(caseId, userId)
                         .orElseThrow(() ->
                                 new IllegalArgumentException(
                                         "해당 사건을 찾을 수 없습니다. ID: "
