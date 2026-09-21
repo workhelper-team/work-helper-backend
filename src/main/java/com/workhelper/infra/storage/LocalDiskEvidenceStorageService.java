@@ -25,18 +25,17 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
     private String basePath;
 
     @Override
-    public String store(MultipartFile file) {
+    public String store(Long caseId, MultipartFile file) {
         try {
-            String extension = extractExtension(file.getOriginalFilename());
-            // 원본 파일명 대신 충돌 가능성이 낮은 UUID 기반 Object Key를 생성합니다.
-            String objectKey = UUID.randomUUID() + (extension.isBlank() ? "" : "." + extension);
+            String extension = extensionForMimeType(file.getContentType());
+            String objectKey = "evidences/" + caseId + "/" + UUID.randomUUID() + "." + extension;
 
-            Path dir = Paths.get(basePath);
+            Path dir = Paths.get(basePath, "evidences", String.valueOf(caseId));
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
             }
 
-            Path target = dir.resolve(objectKey);
+            Path target = Paths.get(basePath, objectKey);
             file.transferTo(target.toFile());
 
             // 호출자에게는 DB에 저장할 Object Key만 반환합니다.
@@ -68,10 +67,11 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
         }
     }
 
-    private String extractExtension(String filename) {
-        if (filename == null || !filename.contains(".")) {
-            return "";
-        }
-        return filename.substring(filename.lastIndexOf('.') + 1);
+    private String extensionForMimeType(String mimeType) {
+        return switch (mimeType) {
+            case "image/jpeg" -> "jpg";
+            case "image/png" -> "png";
+            default -> throw new IllegalArgumentException("지원하지 않는 이미지 MIME 타입입니다.");
+        };
     }
 }

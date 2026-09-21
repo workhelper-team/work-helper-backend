@@ -1,6 +1,5 @@
 package com.workhelper.domain.evidence.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.workhelper.domain.evidence.dto.*;
 import com.workhelper.domain.evidence.entity.AnalysisStatus;
 import com.workhelper.domain.evidence.entity.Evidence;
@@ -26,9 +25,7 @@ public class EvidenceServiceImpl implements EvidenceService {
     private final EvidenceRepository evidenceRepository;
     private final LaborCaseRepository laborCaseRepository;
     private final EvidenceStorageService evidenceStorageService;
-    private final ObjectMapper objectMapper;
-
-        /** Storage에 파일을 저장한 뒤 반환된 Object Key와 메타데이터를 DB에 저장합니다. */
+    /** Storage에 파일을 저장한 뒤 반환된 Object Key와 메타데이터를 DB에 저장합니다. */
     @Override
     @Transactional
     public EvidenceUploadResponse uploadEvidence(Long caseId, MultipartFile file, String description) {
@@ -37,7 +34,7 @@ public class EvidenceServiceImpl implements EvidenceService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
 
         // 2. 파일 본문은 Storage에 저장하고 DB에 기록할 Object Key를 받습니다.
-        String objectKey = evidenceStorageService.store(file);
+        String objectKey = evidenceStorageService.store(caseId, file);
 
         // 3. Object Key와 업로드 정보를 Evidence로 저장합니다.
         Evidence evidence = Evidence.builder()
@@ -49,7 +46,17 @@ public class EvidenceServiceImpl implements EvidenceService {
                 .analysisStatus(AnalysisStatus.PENDING)
                 .build();
 
-        Evidence savedEvidence = evidenceRepository.save(evidence);
+        Evidence savedEvidence;
+        try {
+            savedEvidence = evidenceRepository.saveAndFlush(evidence);
+        } catch (RuntimeException databaseException) {
+            try {
+                evidenceStorageService.delete(objectKey);
+            } catch (RuntimeException cleanupException) {
+                databaseException.addSuppressed(cleanupException);
+            }
+            throw databaseException;
+        }
 
         return new EvidenceUploadResponse(
                 savedEvidence.getEvidenceId(),
@@ -61,7 +68,7 @@ public class EvidenceServiceImpl implements EvidenceService {
         );
     }
 
-        /**
+    /**
          * 증거 분석을 시작하고 분석 결과를 응답합니다.
          * FastAPI Client가 연결되면 PROCESSING 저장 후 최종 COMPLETED/FAILED 결과를 반영하는 지점입니다.
          */
@@ -88,7 +95,7 @@ public class EvidenceServiceImpl implements EvidenceService {
         );
     }
 
-        /** 사건에 속한 Evidence를 페이징 조회하고 목록 응답으로 변환합니다. */
+    /** 사건에 속한 Evidence를 페이징 조회하고 목록 응답으로 변환합니다. */
     @Override
     public Page<EvidenceSummaryResponse> getEvidences(Long caseId, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
@@ -104,7 +111,7 @@ public class EvidenceServiceImpl implements EvidenceService {
         ));
     }
 
-        /** Evidence 메타데이터와 Storage 접근용 fileUrl을 함께 반환합니다. */
+    /** Evidence 메타데이터와 Storage 접근용 fileUrl을 함께 반환합니다. */
     @Override
     public EvidenceDetailResponse getEvidenceDetail(Long caseId, Long evidenceId) {
         Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
@@ -126,7 +133,7 @@ public class EvidenceServiceImpl implements EvidenceService {
         );
     }
 
-        /** 소유권 확인 후 Storage 파일과 DB Evidence를 순서대로 물리 삭제합니다. */
+    /** 소유권 확인 후 Storage 파일과 DB Evidence를 순서대로 물리 삭제합니다. */
     @Override
     @Transactional
     public void deleteEvidence(Long caseId, Long evidenceId) {

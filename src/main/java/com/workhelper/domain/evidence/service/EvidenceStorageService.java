@@ -7,7 +7,7 @@ public interface EvidenceStorageService {
     /**
      * 파일을 저장하고 DB에 기록할 Object Key(파일명)를 반환합니다.
      */
-    String store(MultipartFile file);
+    String store(Long caseId, MultipartFile file);
 
     /**
      * Object Key를 전달받아 실제 저장된 파일 경로/URL을 반환합니다.

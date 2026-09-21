@@ -55,7 +55,7 @@ public class Evidence {
     private JsonNode analysisResult;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "analysis_status", nullable = false, length = 30)
+    @Column(name = "analysis_status", nullable = false, length = 20)
     private AnalysisStatus analysisStatus;
 
     @Column(name = "created_at", nullable = false, updatable = false)

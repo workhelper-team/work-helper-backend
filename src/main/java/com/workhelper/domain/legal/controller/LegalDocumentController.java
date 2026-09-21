@@ -49,13 +49,19 @@ public class LegalDocumentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        int validSize = Math.min(size, 100);
+        validatePagination(page, size);
         
         // 검색 결과를 API 응답 규격으로 변환합니다.
         Page<LegalDocumentSummaryResponse> searchResult = 
-                legalDocumentService.searchLegalDocuments(query, sourceType, page, validSize);
+                legalDocumentService.searchLegalDocuments(query, sourceType, page, size);
                 
         return ResponseEntity.ok(PageResult.from(searchResult));
+    }
+
+    private void validatePagination(int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("page는 0 이상, size는 1 이상 100 이하이어야 합니다.");
+        }
     }
 
     @GetMapping("/{legalDocumentId}")

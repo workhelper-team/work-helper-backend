@@ -77,10 +77,15 @@ public class EvidenceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // API 기본값은 page=0, size=20이며 한 번에 최대 100개까지만 조회합니다.
-        int validSize = Math.min(size, 100);
-        Page<EvidenceSummaryResponse> pageData = evidenceService.getEvidences(caseId, page, validSize);
+        validatePagination(page, size);
+        Page<EvidenceSummaryResponse> pageData = evidenceService.getEvidences(caseId, page, size);
         return ResponseEntity.ok(PageResult.from(pageData));
+    }
+
+    private void validatePagination(int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("page는 0 이상, size는 1 이상 100 이하이어야 합니다.");
+        }
     }
 
     @GetMapping("/{evidenceId}")
