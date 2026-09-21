@@ -79,6 +79,10 @@ public class AdminExpertService {
     // 노무사 권한 업데이트 
     @Transactional
     public List<AdminExpertDto.StatusUpdateResponse> updateExpertStatuses(List<Long> expertIds, String status) {
+        if (!"APPROVED".equals(status) && !"REJECTED".equals(status)) {
+            throw new IllegalArgumentException("상태는 APPROVED 또는 REJECTED만 가능합니다.");
+        }
+
         List<ExpertProfile> profiles = expertRepository.findAllById(
             Objects.requireNonNull(expertIds, "expertIds는 필수입니다."));
 

@@ -46,8 +46,8 @@ public class SecurityConfig {
             // 로그인, 회원가입 등 인증이 필요 없는 경로는 permitAll 설정
             .requestMatchers("/api/auth/**").permitAll()
             .requestMatchers("/error").permitAll()
-            .requestMatchers("/api/admin/**").hasRole("ADMIN")) // 관리자 API는 ADMIN만
-            //.anyRequest().authenticated())  막힐 수 있으니 주석 처리
+            .requestMatchers("/api/admin/**").hasRole("ADMIN")
+            .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -55,10 +54,11 @@ public class JwtProvider {
 
         String role = claims.get("role", String.class);
         String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-        User principal = new User(
-                claims.get("email", String.class),
-                "",
-                Collections.singleton(new SimpleGrantedAuthority(authority)));
+        Long userId = Long.valueOf(claims.getSubject());
+        JwtUserPrincipal principal = new JwtUserPrincipal(
+            userId,
+            claims.get("email", String.class),
+            Collections.singleton(new SimpleGrantedAuthority(authority)));
         return new UsernamePasswordAuthenticationToken(
             principal, token, principal.getAuthorities());
     }

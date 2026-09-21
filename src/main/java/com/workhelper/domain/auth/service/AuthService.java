@@ -98,7 +98,7 @@ public class AuthService {
                 .expertId(expertProfiles.getExpertId())
                 .email(savedUser.getEmail())
                 .name(savedUser.getName())
-                .role("EXPERT")
+                .role("GENERAL")
                 .expertStatus(expertProfiles.getStatus()) // "PENDING"
                 .build();
         }

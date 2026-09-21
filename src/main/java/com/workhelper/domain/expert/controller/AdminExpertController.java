@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class AdminExpertController {
     // API-ADM-004: 노무사 가입 승인/거절 (복수 선택 처리)
     @PatchMapping("/status")
     public ResponseEntity<List<AdminExpertDto.StatusUpdateResponse>> updateExpertStatuses(
-            @RequestBody AdminExpertDto.StatusUpdateRequest request) {
+            @RequestBody @Valid AdminExpertDto.StatusUpdateRequest request) {
         List<AdminExpertDto.StatusUpdateResponse> responses = adminExpertService.updateExpertStatuses(
                 request.getExpertIds(), request.getStatus());
         return ResponseEntity.ok(responses);
