@@ -2,12 +2,14 @@ package com.workhelper.domain.evidence.controller;
 
 import com.workhelper.domain.evidence.dto.*;
 import com.workhelper.domain.evidence.service.EvidenceService;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -46,6 +48,7 @@ public class EvidenceController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<EvidenceUploadResponse> uploadEvidence(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @RequestPart("file") MultipartFile file,
             @RequestPart(value = "description", required = false) String description
@@ -58,27 +61,32 @@ public class EvidenceController {
             throw new IllegalArgumentException("파일 크기는 최대 10MB를 초과할 수 없습니다.");
         }
 
-        EvidenceUploadResponse response = evidenceService.uploadEvidence(caseId, file, description);
+        EvidenceUploadResponse response = evidenceService.uploadEvidence(
+            principal.getUserId(), caseId, file, description);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/{evidenceId}/analysis")
     public ResponseEntity<EvidenceAnalysisResponse> analyzeEvidence(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @PathVariable Long evidenceId
     ) {
-        EvidenceAnalysisResponse response = evidenceService.analyzeEvidence(caseId, evidenceId);
+        EvidenceAnalysisResponse response = evidenceService.analyzeEvidence(
+            principal.getUserId(), caseId, evidenceId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
     public ResponseEntity<PageResult<EvidenceSummaryResponse>> getEvidences(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         validatePagination(page, size);
-        Page<EvidenceSummaryResponse> pageData = evidenceService.getEvidences(caseId, page, size);
+        Page<EvidenceSummaryResponse> pageData = evidenceService.getEvidences(
+            principal.getUserId(), caseId, page, size);
         return ResponseEntity.ok(PageResult.from(pageData));
     }
 
@@ -90,18 +98,21 @@ public class EvidenceController {
 
     @GetMapping("/{evidenceId}")
     public ResponseEntity<EvidenceDetailResponse> getEvidenceDetail(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @PathVariable Long evidenceId
     ) {
-        return ResponseEntity.ok(evidenceService.getEvidenceDetail(caseId, evidenceId));
+        return ResponseEntity.ok(evidenceService.getEvidenceDetail(
+            principal.getUserId(), caseId, evidenceId));
     }
 
     @DeleteMapping("/{evidenceId}")
     public ResponseEntity<Void> deleteEvidence(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable Long caseId,
             @PathVariable Long evidenceId
     ) {
-        evidenceService.deleteEvidence(caseId, evidenceId);
+        evidenceService.deleteEvidence(principal.getUserId(), caseId, evidenceId);
         return ResponseEntity.noContent().build(); // 204 No Content
     }
 }

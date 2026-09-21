@@ -6,6 +6,7 @@ import com.workhelper.domain.evidence.entity.Evidence;
 import com.workhelper.domain.evidence.repository.EvidenceRepository;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import com.workhelper.domain.laborcase.repository.LaborCaseRepository;
+import com.workhelper.infra.storage.EvidenceStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,13 +29,13 @@ public class EvidenceServiceImpl implements EvidenceService {
     /** Storage에 파일을 저장한 뒤 반환된 Object Key와 메타데이터를 DB에 저장합니다. */
     @Override
     @Transactional
-    public EvidenceUploadResponse uploadEvidence(Long caseId, MultipartFile file, String description) {
+    public EvidenceUploadResponse uploadEvidence(Long userId, Long caseId, MultipartFile file, String description) {
         // 1. 먼저 연결할 사건이 실제로 존재하는지 확인합니다.
-        LaborCase laborCase = laborCaseRepository.findById(caseId)
+        LaborCase laborCase = laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
 
         // 2. 파일 본문은 Storage에 저장하고 DB에 기록할 Object Key를 받습니다.
-        String objectKey = evidenceStorageService.store(caseId, file);
+        String objectKey = evidenceStorageService.save(caseId, file);
 
         // 3. Object Key와 업로드 정보를 Evidence로 저장합니다.
         Evidence evidence = Evidence.builder()
@@ -74,7 +75,8 @@ public class EvidenceServiceImpl implements EvidenceService {
          */
     @Override
     @Transactional
-    public EvidenceAnalysisResponse analyzeEvidence(Long caseId, Long evidenceId) {
+    public EvidenceAnalysisResponse analyzeEvidence(Long userId, Long caseId, Long evidenceId) {
+        verifyCaseOwnership(userId, caseId);
         Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
 
@@ -97,7 +99,8 @@ public class EvidenceServiceImpl implements EvidenceService {
 
     /** 사건에 속한 Evidence를 페이징 조회하고 목록 응답으로 변환합니다. */
     @Override
-    public Page<EvidenceSummaryResponse> getEvidences(Long caseId, int page, int size) {
+    public Page<EvidenceSummaryResponse> getEvidences(Long userId, Long caseId, int page, int size) {
+        verifyCaseOwnership(userId, caseId);
         PageRequest pageable = PageRequest.of(page, size);
         Page<Evidence> evidencePage = evidenceRepository.findByLaborCase_CaseId(caseId, pageable);
 
@@ -113,7 +116,8 @@ public class EvidenceServiceImpl implements EvidenceService {
 
     /** Evidence 메타데이터와 Storage 접근용 fileUrl을 함께 반환합니다. */
     @Override
-    public EvidenceDetailResponse getEvidenceDetail(Long caseId, Long evidenceId) {
+    public EvidenceDetailResponse getEvidenceDetail(Long userId, Long caseId, Long evidenceId) {
+        verifyCaseOwnership(userId, caseId);
         Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
 
@@ -136,7 +140,8 @@ public class EvidenceServiceImpl implements EvidenceService {
     /** 소유권 확인 후 Storage 파일과 DB Evidence를 순서대로 물리 삭제합니다. */
     @Override
     @Transactional
-    public void deleteEvidence(Long caseId, Long evidenceId) {
+    public void deleteEvidence(Long userId, Long caseId, Long evidenceId) {
+        verifyCaseOwnership(userId, caseId);
         // 1. 사건과 Evidence의 연결을 확인해 다른 사건의 파일을 삭제하지 않도록 합니다.
         Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
                 .orElseThrow(() -> new IllegalArgumentException("삭제 권한이 없거나 존재하지 않는 증거입니다."));
@@ -146,5 +151,10 @@ public class EvidenceServiceImpl implements EvidenceService {
 
         // 3. Storage 삭제가 성공한 경우에만 DB 레코드를 삭제합니다.
         evidenceRepository.delete(evidence);
+    }
+
+    private LaborCase verifyCaseOwnership(Long userId, Long caseId) {
+        return laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
     }
 }

@@ -6,13 +6,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface EvidenceService {
 
-    EvidenceUploadResponse uploadEvidence(Long caseId, MultipartFile file, String description);
+    EvidenceUploadResponse uploadEvidence(Long userId, Long caseId, MultipartFile file, String description);
 
-    EvidenceAnalysisResponse analyzeEvidence(Long caseId, Long evidenceId);
+    EvidenceAnalysisResponse analyzeEvidence(Long userId, Long caseId, Long evidenceId);
 
-    Page<EvidenceSummaryResponse> getEvidences(Long caseId, int page, int size);
+    Page<EvidenceSummaryResponse> getEvidences(Long userId, Long caseId, int page, int size);
 
-    EvidenceDetailResponse getEvidenceDetail(Long caseId, Long evidenceId);
+    EvidenceDetailResponse getEvidenceDetail(Long userId, Long caseId, Long evidenceId);
 
-    void deleteEvidence(Long caseId, Long evidenceId);
+    void deleteEvidence(Long userId, Long caseId, Long evidenceId);
 }

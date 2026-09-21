@@ -7,7 +7,3 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/workhelper}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD}
-
-ai:
-  analysis:
-    base-url: ${AI_ANALYSIS_BASE_URL:http://localhost:8001}

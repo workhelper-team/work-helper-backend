@@ -1,77 +1,114 @@
 package com.workhelper.infra.storage;
 
-import com.workhelper.domain.evidence.service.EvidenceStorageService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
-/**
- * 개발 환경에서 Evidence 파일을 로컬 디스크에 저장하는 구현체입니다.
- * EvidenceService가 의존하는 domain 인터페이스를 구현하지만, 실제 파일 I/O는 infra에서 담당합니다.
- * DB에는 이 클래스가 반환하는 Object Key만 저장하고 전체 경로는 저장하지 않습니다.
- */
 @Service
-@Profile({"local", "dev"})
+@ConditionalOnProperty(name = "storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
 
-    @Value("${app.storage.local.base-path:./storage/evidences}")
-    private String basePath;
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+    private final Path storageRoot;
+
+    public LocalDiskEvidenceStorageService(
+            @Value("${storage.local-root:./storage}") String storageRoot) {
+        this.storageRoot = Paths.get(storageRoot).toAbsolutePath().normalize();
+    }
 
     @Override
-    public String store(Long caseId, MultipartFile file) {
-        try {
-            String extension = extensionForMimeType(file.getContentType());
-            String objectKey = "evidences/" + caseId + "/" + UUID.randomUUID() + "." + extension;
+    public String save(MultipartFile file) {
+        return saveWithPrefix(file, "licenses");
+    }
 
-            Path dir = Paths.get(basePath, "evidences", String.valueOf(caseId));
-            if (!Files.exists(dir)) {
-                Files.createDirectories(dir);
-            }
+    @Override
+    public String save(Long caseId, MultipartFile file) {
+        if (caseId == null) {
+            throw new IllegalArgumentException("caseId가 필요합니다.");
+        }
+        return saveWithPrefix(file, "evidences/" + caseId);
+    }
 
-            Path target = Paths.get(basePath, objectKey);
-            file.transferTo(target.toFile());
+    private String saveWithPrefix(MultipartFile file, String prefix) {
+        validateFile(file);
+        String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
+        String objectKey = prefix + "/" + UUID.randomUUID()
+                + (StringUtils.hasText(extension) ? "." + extension : "");
+        Path target = resolve(objectKey);
 
-            // 호출자에게는 DB에 저장할 Object Key만 반환합니다.
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.createDirectories(target.getParent());
+            Files.copy(inputStream, target);
             return objectKey;
         } catch (IOException e) {
-            throw new RuntimeException("파일 저장 중 오류가 발생했습니다.", e);
+            throw new IllegalStateException("파일 저장 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    @Override
+    public Resource load(String objectKey) {
+        Path path = resolve(objectKey);
+        try {
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new IllegalArgumentException("파일을 읽을 수 없습니다.");
+            }
+            return resource;
+        } catch (MalformedURLException e) {
+            throw new IllegalStateException("파일 경로가 올바르지 않습니다.", e);
         }
     }
 
     @Override
     public String getFileUrl(String objectKey) {
-        if (objectKey == null || objectKey.isBlank()) {
-            return null;
-        }
-        // 개발 환경에서는 로컬 절대 경로를 반환하며, 운영 S3 구현체는 URL을 반환하게 됩니다.
-        return Paths.get(basePath, objectKey).toAbsolutePath().toString();
+        return resolve(objectKey).toUri().toString();
     }
 
     @Override
     public void delete(String objectKey) {
-        if (objectKey == null || objectKey.isBlank()) {
-            return;
-        }
         try {
-            Path target = Paths.get(basePath, objectKey);
-            Files.deleteIfExists(target);
+            Files.deleteIfExists(resolve(objectKey));
         } catch (IOException e) {
-            throw new RuntimeException("파일 삭제 중 오류가 발생했습니다.", e);
+            throw new IllegalStateException("파일 삭제 중 오류가 발생했습니다.", e);
         }
     }
 
-    private String extensionForMimeType(String mimeType) {
-        return switch (mimeType) {
-            case "image/jpeg" -> "jpg";
-            case "image/png" -> "png";
-            default -> throw new IllegalArgumentException("지원하지 않는 이미지 MIME 타입입니다.");
-        };
+    private Path resolve(String objectKey) {
+        if (!StringUtils.hasText(objectKey)) {
+            throw new IllegalArgumentException("파일 Object Key가 필요합니다.");
+        }
+        Path resolved = storageRoot.resolve(objectKey).normalize();
+        if (!resolved.startsWith(storageRoot)) {
+            throw new IllegalArgumentException("유효하지 않은 파일 Object Key입니다.");
+        }
+        return resolved;
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("저장할 파일이 필요합니다.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("파일 크기는 10MB 이하여야 합니다.");
+        }
+        String contentType = file.getContentType();
+        if (!"application/pdf".equals(contentType)
+                && !"image/jpeg".equals(contentType)
+                && !"image/png".equals(contentType)) {
+            throw new IllegalArgumentException("PDF, JPG, PNG 파일만 첨부할 수 있습니다.");
+        }
     }
 }
