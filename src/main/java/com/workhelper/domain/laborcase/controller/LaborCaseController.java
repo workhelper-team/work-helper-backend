@@ -4,10 +4,12 @@ import com.workhelper.domain.laborcase.dto.LaborCaseRequestDto;
 import com.workhelper.domain.laborcase.dto.LaborCaseResponseDto;
 import com.workhelper.domain.laborcase.dto.LaborCaseUpdateRequestDto;
 import com.workhelper.domain.laborcase.service.LaborCaseService;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 // ============================================================
@@ -29,21 +31,12 @@ public class LaborCaseController {
     //
     // POST /api/cases
     // ============================================================
-
     @PostMapping
     public ResponseEntity<LaborCaseResponseDto> createCase(
-            @Valid @RequestBody LaborCaseRequestDto requestDto
+            @Valid @RequestBody LaborCaseRequestDto requestDto,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-
-        /*
-         * TODO:
-         * JWT에서 현재 로그인한 사용자의 userId를 가져와야 함.
-         *
-         * Security 구현 확인 후
-         * 아래 createCase()에 userId를 전달.
-         */
-
-        Long userId = /* JWT에서 가져오기 */ null;
+        Long userId = principal.getUserId();
 
         LaborCaseResponseDto response =
                 laborCaseService.createCase(userId, requestDto);
@@ -58,20 +51,14 @@ public class LaborCaseController {
     //
     // status / page / size
     // ============================================================
-
     @GetMapping
     public ResponseEntity<Page<LaborCaseResponseDto>> getAllCases(
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-
-        /*
-         * TODO:
-         * JWT에서 현재 로그인한 사용자의 userId를 가져와야 함.
-         */
-
-        Long userId = /* JWT에서 가져오기 */ null;
+        Long userId = principal.getUserId();
 
         Page<LaborCaseResponseDto> response =
                 laborCaseService.getCases(
@@ -89,18 +76,12 @@ public class LaborCaseController {
     //
     // GET /api/cases/{caseId}
     // ============================================================
-
     @GetMapping("/{caseId}")
     public ResponseEntity<LaborCaseResponseDto> getCase(
-            @PathVariable Long caseId
+            @PathVariable Long caseId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-
-        /*
-         * TODO:
-         * JWT에서 현재 로그인한 사용자의 userId를 가져와야 함.
-         */
-
-        Long userId = /* JWT에서 가져오기 */ null;
+        Long userId = principal.getUserId();
 
         LaborCaseResponseDto response =
                 laborCaseService.getCase(caseId, userId);
@@ -113,19 +94,13 @@ public class LaborCaseController {
     //
     // PATCH /api/cases/{caseId}
     // ============================================================
-
     @PatchMapping("/{caseId}")
     public ResponseEntity<LaborCaseResponseDto> updateCase(
             @PathVariable Long caseId,
-            @RequestBody LaborCaseUpdateRequestDto requestDto
+            @RequestBody LaborCaseUpdateRequestDto requestDto,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-
-        /*
-         * TODO:
-         * JWT에서 현재 로그인한 사용자의 userId를 가져와야 함.
-         */
-
-        Long userId = /* JWT에서 가져오기 */ null;
+        Long userId = principal.getUserId();
 
         LaborCaseResponseDto response =
                 laborCaseService.updateCase(
