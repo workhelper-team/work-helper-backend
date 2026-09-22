@@ -3,9 +3,13 @@ package com.workhelper.domain.consultation.controller;
 import com.workhelper.domain.consultation.dto.ConsultationMessageRequestDto;
 import com.workhelper.domain.consultation.dto.ConsultationMessageResponseDto;
 import com.workhelper.domain.consultation.service.ConsultationMessageService;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,12 +41,12 @@ public class ConsultationMessageController {
 
     @GetMapping
     public ResponseEntity<List<ConsultationMessageResponseDto>> getMessages(
-            // URL의 {caseId} 값을 Long 타입으로 전달받음
-            @PathVariable Long caseId
+            @PathVariable Long caseId,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
 
-        // 현재는 JWT userId 연결 전이므로 임시로 null 전달
-        Long userId = null;
+        // JWT 인증 정보에서 현재 로그인한 사용자의 userId를 가져옴
+        Long userId = principal.getUserId();
 
         // 특정 사건의 상담 메시지 목록을 Service에 요청
         List<ConsultationMessageResponseDto> response =
@@ -62,19 +66,15 @@ public class ConsultationMessageController {
 
     @PostMapping
     public ResponseEntity<ConsultationMessageResponseDto> sendMessage(
-            // URL의 {caseId}를 전달받아
-            // 어느 사건에 대한 상담인지 식별
             @PathVariable Long caseId,
-
-            // 요청 Body의 메시지 내용을
-            // Request DTO로 전달받음
-            @Valid @RequestBody ConsultationMessageRequestDto requestDto
+            @Valid @RequestBody ConsultationMessageRequestDto requestDto,
+            @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
 
-        // 현재는 JWT userId 연결 전이므로 임시로 null 전달
-        Long userId = null;
+        // JWT 인증 정보에서 현재 로그인한 사용자의 userId를 가져옴
+        Long userId = principal.getUserId();
 
-        // 사건 ID와 상담 메시지 내용을 Service에 전달
+        // 사건 ID, 사용자 ID, 상담 메시지 내용을 Service에 전달
         ConsultationMessageResponseDto response =
                 consultationMessageService.sendMessage(
                         caseId,
