@@ -188,7 +188,7 @@ public class ExpertQnaServiceImpl implements ExpertQnaService {
                 question.getLaborCase().getCaseId(),
                 question.getTitle(),
                 question.getStatus().name(),
-                question.getLaborCase().getCategory(),
+                question.getLaborCase().getCategory().name(),
                 expertAnswerRepository.countByExpertQuestion_QuestionId(question.getQuestionId()),
                 question.getCreatedAt()
         );
