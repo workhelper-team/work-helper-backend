@@ -36,13 +36,25 @@ public class S3EvidenceStorageService implements EvidenceStorageService {
 
     @Override
     public String save(MultipartFile file) {
+        return saveWithPrefix(file, "licenses");
+    }
+
+    @Override
+    public String save(Long caseId, MultipartFile file) {
+        if (caseId == null) {
+            throw new IllegalArgumentException("caseId가 필요합니다.");
+        }
+        return saveWithPrefix(file, "evidences/" + caseId);
+    }
+
+    private String saveWithPrefix(MultipartFile file, String prefix) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("저장할 파일이 필요합니다.");
         }
         validateFile(file);
 
         String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
-        String objectKey = "licenses/" + UUID.randomUUID()
+        String objectKey = prefix + "/" + UUID.randomUUID()
                 + (StringUtils.hasText(extension) ? "." + extension : "");
 
         try {
@@ -72,6 +84,16 @@ public class S3EvidenceStorageService implements EvidenceStorageService {
                 
                 
         return new ByteArrayResource(s3Client.getObjectAsBytes(request).asByteArray());
+    }
+
+    @Override
+    public String getFileUrl(String objectKey) {
+        return s3Client.utilities().getUrl(builder -> builder.bucket(bucketName).key(objectKey)).toExternalForm();
+    }
+
+    @Override
+    public void delete(String objectKey) {
+        s3Client.deleteObject(builder -> builder.bucket(bucketName).key(objectKey));
     }
 
     private void validateFile(MultipartFile file) {
