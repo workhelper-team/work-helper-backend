@@ -7,5 +7,11 @@ public interface EvidenceStorageService {
 
     String save(MultipartFile file);
 
+    String save(Long caseId, MultipartFile file);
+
     Resource load(String objectKey);
+
+    String getFileUrl(String objectKey);
+
+    void delete(String objectKey);
 }

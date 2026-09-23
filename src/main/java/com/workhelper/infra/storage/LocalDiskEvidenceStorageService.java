@@ -25,19 +25,27 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
     private final Path storageRoot;
 
     public LocalDiskEvidenceStorageService(
-            @Value("${storage.local-root:uploads}") String storageRoot) {
+            @Value("${storage.local-root:./storage}") String storageRoot) {
         this.storageRoot = Paths.get(storageRoot).toAbsolutePath().normalize();
     }
 
     @Override
     public String save(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("저장할 파일이 필요합니다.");
-        }
-        validateFile(file);
+        return saveWithPrefix(file, "licenses");
+    }
 
+    @Override
+    public String save(Long caseId, MultipartFile file) {
+        if (caseId == null) {
+            throw new IllegalArgumentException("caseId가 필요합니다.");
+        }
+        return saveWithPrefix(file, "evidences/" + caseId);
+    }
+
+    private String saveWithPrefix(MultipartFile file, String prefix) {
+        validateFile(file);
         String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
-        String objectKey = "licenses/" + UUID.randomUUID()
+        String objectKey = prefix + "/" + UUID.randomUUID()
                 + (StringUtils.hasText(extension) ? "." + extension : "");
         Path target = resolve(objectKey);
 
@@ -64,11 +72,24 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
         }
     }
 
+    @Override
+    public String getFileUrl(String objectKey) {
+        return resolve(objectKey).toUri().toString();
+    }
+
+    @Override
+    public void delete(String objectKey) {
+        try {
+            Files.deleteIfExists(resolve(objectKey));
+        } catch (IOException e) {
+            throw new IllegalStateException("파일 삭제 중 오류가 발생했습니다.", e);
+        }
+    }
+
     private Path resolve(String objectKey) {
         if (!StringUtils.hasText(objectKey)) {
             throw new IllegalArgumentException("파일 Object Key가 필요합니다.");
         }
-
         Path resolved = storageRoot.resolve(objectKey).normalize();
         if (!resolved.startsWith(storageRoot)) {
             throw new IllegalArgumentException("유효하지 않은 파일 Object Key입니다.");
@@ -77,10 +98,12 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
     }
 
     private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("저장할 파일이 필요합니다.");
+        }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new IllegalArgumentException("파일 크기는 10MB 이하여야 합니다.");
         }
-
         String contentType = file.getContentType();
         if (!"application/pdf".equals(contentType)
                 && !"image/jpeg".equals(contentType)
