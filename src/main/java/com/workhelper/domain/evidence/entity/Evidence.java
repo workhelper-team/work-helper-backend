@@ -89,4 +89,8 @@ public class Evidence {
         this.analysisResult = analysisResult;
         this.analysisStatus = status;
     }
+
+    public void updateExtractedText(String extractedText) {
+        this.extractedText = extractedText;
+    }
 }

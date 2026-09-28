@@ -39,6 +39,9 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.31.68')
     implementation 'software.amazon.awssdk:s3'
 
+    // PDF output
+    implementation 'org.apache.pdfbox:pdfbox:3.0.8'
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testCompileOnly 'org.projectlombok:lombok'

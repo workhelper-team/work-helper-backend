@@ -10,6 +10,8 @@ public interface EvidenceService {
 
     EvidenceAnalysisResponse analyzeEvidence(Long userId, Long caseId, Long evidenceId);
 
+    EvidenceDetailResponse updateExtractedText(Long userId, Long caseId, Long evidenceId, String extractedText);
+
     Page<EvidenceSummaryResponse> getEvidences(Long userId, Long caseId, int page, int size);
 
     EvidenceDetailResponse getEvidenceDetail(Long userId, Long caseId, Long evidenceId);

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -53,9 +54,11 @@ public class EvidenceController {
             @RequestPart("file") MultipartFile file,
             @RequestPart(value = "description", required = false) String description
     ) {
-        // 업로드 정책: 비어 있지 않은 JPEG/PNG 파일만 허용합니다.
-        if (file.isEmpty() || (!"image/jpeg".equals(file.getContentType()) && !"image/png".equals(file.getContentType()))) {
-            throw new IllegalArgumentException("JPEG 또는 PNG 형식의 이미지 파일만 업로드 가능합니다.");
+        // 업로드 정책: 비어 있지 않은 JPEG, PNG, PDF 파일만 허용합니다.
+        if (file.isEmpty() || (!"image/jpeg".equals(file.getContentType())
+                && !"image/png".equals(file.getContentType())
+                && !"application/pdf".equals(file.getContentType()))) {
+            throw new IllegalArgumentException("JPEG, PNG 또는 PDF 파일만 업로드 가능합니다.");
         }
         if (file.getSize() > 10 * 1024 * 1024) {
             throw new IllegalArgumentException("파일 크기는 최대 10MB를 초과할 수 없습니다.");
@@ -104,6 +107,17 @@ public class EvidenceController {
     ) {
         return ResponseEntity.ok(evidenceService.getEvidenceDetail(
             principal.getUserId(), caseId, evidenceId));
+    }
+
+    @PatchMapping("/{evidenceId}")
+    public ResponseEntity<EvidenceDetailResponse> updateExtractedText(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable Long caseId,
+            @PathVariable Long evidenceId,
+            @Valid @RequestBody EvidenceTextUpdateRequest request
+    ) {
+        return ResponseEntity.ok(evidenceService.updateExtractedText(
+                principal.getUserId(), caseId, evidenceId, request.extractedText()));
     }
 
     @DeleteMapping("/{evidenceId}")

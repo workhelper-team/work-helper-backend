@@ -6,6 +6,7 @@ import com.workhelper.domain.evidence.entity.Evidence;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -16,6 +17,8 @@ public interface EvidenceRepository extends JpaRepository<Evidence, Long> {
     Page<Evidence> findByLaborCase_CaseId(Long caseId, Pageable pageable);
 
     Optional<Evidence> findByEvidenceIdAndLaborCase_CaseId(Long evidenceId, Long caseId);
+
+    List<Evidence> findByLaborCase_CaseId(Long caseId);
 
 
 }
