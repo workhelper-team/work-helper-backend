@@ -78,6 +78,11 @@ public class LocalDiskEvidenceStorageService implements EvidenceStorageService {
     }
 
     @Override
+    public String getPresignedGetUrl(String objectKey) {
+        throw new UnsupportedOperationException("AI evidence analysis requires S3 storage");
+    }
+
+    @Override
     public void delete(String objectKey) {
         try {
             Files.deleteIfExists(resolve(objectKey));

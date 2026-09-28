@@ -6,16 +6,26 @@ import com.workhelper.domain.evidence.entity.Evidence;
 import com.workhelper.domain.evidence.repository.EvidenceRepository;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import com.workhelper.domain.laborcase.repository.LaborCaseRepository;
+import com.workhelper.infra.ai.AiClient;
+import com.workhelper.infra.ai.AiIntegrationException;
+import com.workhelper.infra.ai.dto.EvidenceAnalysisAiRequest;
+import com.workhelper.infra.ai.dto.EvidenceAnalysisAiResponse;
 import com.workhelper.infra.storage.EvidenceStorageService;
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.StringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 /**
  * Evidence의 업무 흐름을 조정합니다.
@@ -26,6 +36,24 @@ public class EvidenceServiceImpl implements EvidenceService {
     private final EvidenceRepository evidenceRepository;
     private final LaborCaseRepository laborCaseRepository;
     private final EvidenceStorageService evidenceStorageService;
+    private final AiClient aiClient;
+    private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
+
+    public EvidenceServiceImpl(EvidenceRepository evidenceRepository,
+                               LaborCaseRepository laborCaseRepository,
+                               EvidenceStorageService evidenceStorageService,
+                               AiClient aiClient,
+                               ObjectMapper objectMapper,
+                               PlatformTransactionManager transactionManager) {
+        this.evidenceRepository = evidenceRepository;
+        this.laborCaseRepository = laborCaseRepository;
+        this.evidenceStorageService = evidenceStorageService;
+        this.aiClient = aiClient;
+        this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
     /** Storage에 파일을 저장한 뒤 반환된 Object Key와 메타데이터를 DB에 저장합니다. */
     @Override
     @Transactional
@@ -69,32 +97,61 @@ public class EvidenceServiceImpl implements EvidenceService {
         );
     }
 
-    /**
-         * 증거 분석을 시작하고 분석 결과를 응답합니다.
-         * FastAPI Client가 연결되면 PROCESSING 저장 후 최종 COMPLETED/FAILED 결과를 반영하는 지점입니다.
-         */
+    /** 분석 상태를 먼저 확정한 뒤 AI 호출과 결과 저장을 별도 트랜잭션에서 처리합니다. */
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public EvidenceAnalysisResponse analyzeEvidence(Long userId, Long caseId, Long evidenceId) {
+        AnalysisContext context = transactionTemplate.execute(status -> {
+            verifyCaseOwnership(userId, caseId);
+            Evidence evidence = findEvidence(caseId, evidenceId);
+            evidence.updateAnalysisStatus(AnalysisStatus.PROCESSING);
+            return new AnalysisContext(evidence.getStoragePath(), evidence.getDescription());
+        });
+
+        try {
+            String fileUrl = evidenceStorageService.getPresignedGetUrl(context.storagePath());
+            String userContext = StringUtils.hasText(context.description()) ? context.description() : "";
+            EvidenceAnalysisAiResponse result = aiClient.analyzeEvidence(
+                    new EvidenceAnalysisAiRequest(fileUrl, userContext));
+            if (result.extractedText() == null || result.analysisSummary() == null) {
+                throw new AiIntegrationException(AiIntegrationException.Kind.INVALID_RESPONSE, null,
+                        "AI server returned an incomplete evidence analysis", null);
+            }
+
+            return transactionTemplate.execute(status -> {
+                Evidence evidence = findEvidence(caseId, evidenceId);
+                evidence.updateAnalysisResult(result.extractedText(),
+                        objectMapper.createObjectNode().put("analysisSummary", result.analysisSummary()),
+                        AnalysisStatus.COMPLETED);
+                return new EvidenceAnalysisResponse(evidence.getEvidenceId(), evidence.getExtractedText(),
+                        evidence.getAnalysisResult(), evidence.getAnalysisStatus().name());
+            });
+        } catch (RuntimeException exception) {
+            try {
+                transactionTemplate.executeWithoutResult(status ->
+                        findEvidence(caseId, evidenceId).updateAnalysisStatus(AnalysisStatus.FAILED));
+            } catch (RuntimeException updateException) {
+                exception.addSuppressed(updateException);
+            }
+            throw exception;
+        }
+    }
+
     @Override
     @Transactional
-    public EvidenceAnalysisResponse analyzeEvidence(Long userId, Long caseId, Long evidenceId) {
+    public EvidenceDetailResponse updateExtractedText(Long userId, Long caseId, Long evidenceId,
+                                                       String extractedText) {
         verifyCaseOwnership(userId, caseId);
-        Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
+        Evidence evidence = findEvidence(caseId, evidenceId);
+        if (evidence.getAnalysisStatus() != AnalysisStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Evidence OCR text can only be updated after analysis is completed");
+        }
+        evidence.updateExtractedText(extractedText);
+        return toDetailResponse(evidence);
+    }
 
-        // 외부 분석 요청 전에 재조회 시에도 진행 중임을 알 수 있도록 상태를 먼저 저장합니다.
-        evidence.updateAnalysisStatus(AnalysisStatus.PROCESSING);
-        evidenceRepository.saveAndFlush(evidence);
-
-        /* 
-         * FastAPI Client는 별도 담당 영역입니다.
-         * Client 연결 후 성공하면 updateAnalysisResult(..., COMPLETED), 실패하면 FAILED를 저장합니다.
-         */
-
-        return new EvidenceAnalysisResponse(
-                evidence.getEvidenceId(),
-                evidence.getExtractedText(),
-                evidence.getAnalysisResult(), // JsonNode 타입
-                evidence.getAnalysisStatus().name()
-        );
+    private record AnalysisContext(String storagePath, String description) {
     }
 
     /** 사건에 속한 Evidence를 페이징 조회하고 목록 응답으로 변환합니다. */
@@ -118,8 +175,12 @@ public class EvidenceServiceImpl implements EvidenceService {
     @Override
     public EvidenceDetailResponse getEvidenceDetail(Long userId, Long caseId, Long evidenceId) {
         verifyCaseOwnership(userId, caseId);
-        Evidence evidence = evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 사건의 증거를 찾을 수 없습니다."));
+        Evidence evidence = findEvidence(caseId, evidenceId);
+
+        return toDetailResponse(evidence);
+    }
+
+    private EvidenceDetailResponse toDetailResponse(Evidence evidence) {
 
         // DB에는 Object Key만 있으므로 응답용 접근 경로는 Storage에서 생성합니다.
         String fileUrl = evidenceStorageService.getFileUrl(evidence.getStoragePath());
@@ -156,5 +217,10 @@ public class EvidenceServiceImpl implements EvidenceService {
     private LaborCase verifyCaseOwnership(Long userId, Long caseId) {
         return laborCaseRepository.findByCaseIdAndUserId(caseId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사건입니다. caseId=" + caseId));
+    }
+
+    private Evidence findEvidence(Long caseId, Long evidenceId) {
+        return evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(evidenceId, caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Evidence not found for case"));
     }
 }

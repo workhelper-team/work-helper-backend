@@ -13,5 +13,7 @@ public interface EvidenceStorageService {
 
     String getFileUrl(String objectKey);
 
+    String getPresignedGetUrl(String objectKey);
+
     void delete(String objectKey);
 }
