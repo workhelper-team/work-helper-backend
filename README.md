@@ -26,6 +26,21 @@ DB_PASSWORD=<local-secret>
 
 애플리케이션 실행 전 별도 DDL로 PostgreSQL Schema를 준비해야 합니다. 현재 repository에는 DDL을 생성하지 않습니다.
 
+### Redis 세션 저장소
+
+AWS ElastiCache for Valkey/Redis를 사용할 때 Spring Boot에는 primary endpoint의 호스트명과 포트를 환경변수로 전달합니다. 엔드포인트 문자열에서 `:6379`를 제외한 호스트명만 `REDIS_HOST`에 설정하고, 전송 암호화가 켜진 클러스터는 TLS를 활성화합니다.
+
+```text
+REDIS_HOST=<ElastiCache primary endpoint hostname>
+REDIS_PORT=6379
+REDIS_SSL_ENABLED=true
+REDIS_PASSWORD=<AUTH token, if configured>
+```
+
+AUTH token을 설정하지 않은 클러스터에서는 `REDIS_PASSWORD`를 지정하지 않습니다. 애플리케이션이 EC2에서 실행된다면 두 리소스가 연결 가능한 VPC 안에 있어야 하며, ElastiCache 보안 그룹의 인바운드 TCP 6379 규칙은 애플리케이션 EC2의 보안 그룹만 허용해야 합니다. 세션 저장·연장은 쓰기를 수행하므로 reader endpoint가 아닌 primary endpoint를 사용합니다.
+
+기본값은 위 ElastiCache primary endpoint와 TLS 활성화입니다. 다른 환경에서는 `REDIS_HOST`, `REDIS_PORT`, `REDIS_SSL_ENABLED` 환경변수로 덮어쓸 수 있습니다. AUTH token은 `REDIS_PASSWORD`에 넣고, 비밀번호는 저장소에 기록하지 말고 배포 환경변수 또는 비밀 관리 서비스를 사용합니다.
+
 ## 실행
 
 Windows PowerShell:
