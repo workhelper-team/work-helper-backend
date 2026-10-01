@@ -7,6 +7,8 @@ import com.workhelper.domain.expert.repository.ExpertRepository;
 import com.workhelper.domain.user.repository.UserRepository;
 import com.workhelper.domain.auth.dto.LoginResponse;
 import com.workhelper.global.security.jwt.JwtProvider;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
+import com.workhelper.global.security.session.RedisSessionService;
 import com.workhelper.infra.storage.EvidenceStorageService;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,18 +27,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EvidenceStorageService evidenceStorageService;
+    private final RedisSessionService redisSessionService;
 
     public AuthService( UserRepository userRepository, 
                         ExpertRepository expertRepository, 
                         PasswordEncoder passwordEncoder,
                         JwtProvider jwtProvider,
-                        EvidenceStorageService evidenceStorageService
+                        EvidenceStorageService evidenceStorageService,
+                        RedisSessionService redisSessionService
                     ) {
         this.userRepository = userRepository;
         this.expertRepository = expertRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.evidenceStorageService = evidenceStorageService;
+        this.redisSessionService = redisSessionService;
     }
 
     /**
@@ -120,8 +126,33 @@ public class AuthService {
         ExpertProfile expert = expertRepository.findByUser_UserId(user.getUserId()).orElse(null);
 
         String role = resolveRole(user.getRole(), expert);
+        String sessionId = UUID.randomUUID().toString();
+        redisSessionService.saveSession(user.getUserId(), sessionId,
+            jwtProvider.getAccessTokenValidityInMilliseconds());
+        return createLoginResponse(user, role, sessionId);
+    }
+
+    public LoginResponse extend(JwtUserPrincipal principal) {
+        Long userId = principal.getUserId();
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "존재하지 않는 사용자입니다."));
+        ExpertProfile expert = expertRepository.findByUser_UserId(userId).orElse(null);
+        String role = resolveRole(user.getRole(), expert);
+        String newSessionId = UUID.randomUUID().toString();
+        if (!redisSessionService.rotateSession(userId, principal.getSessionId(), newSessionId,
+                jwtProvider.getAccessTokenValidityInMilliseconds())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인 세션이 유효하지 않습니다.");
+        }
+        return createLoginResponse(user, role, newSessionId);
+    }
+
+    public void logout(JwtUserPrincipal principal) {
+        redisSessionService.deleteSession(principal.getUserId(), principal.getSessionId());
+    }
+
+    private LoginResponse createLoginResponse(User user, String role, String sessionId) {
         String accessToken = jwtProvider.createToken(
-            user.getUserId(), user.getEmail(), role);
+            user.getUserId(), user.getEmail(), role, sessionId);
 
         return new LoginResponse(
             accessToken,

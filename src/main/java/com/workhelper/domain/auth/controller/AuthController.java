@@ -3,10 +3,12 @@ package com.workhelper.domain.auth.controller;
 import com.workhelper.domain.auth.dto.AuthDto;
 import com.workhelper.domain.auth.dto.LoginResponse;
 import com.workhelper.domain.auth.service.AuthService;
+import com.workhelper.global.security.jwt.JwtUserPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -44,6 +46,17 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid AuthDto.Login dto) {
         LoginResponse response = authService.login(dto);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/extend")
+    public ResponseEntity<LoginResponse> extend(@AuthenticationPrincipal JwtUserPrincipal principal) {
+        return ResponseEntity.ok(authService.extend(principal));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal JwtUserPrincipal principal) {
+        authService.logout(principal);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/email-availability")

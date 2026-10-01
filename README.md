@@ -28,6 +28,20 @@ DB_PASSWORD=<local-secret>
 
 ## 실행
 
+### Redis 로그인 세션
+
+로그인과 토큰 연장은 Redis가 필요합니다. 로컬에서는 기본값 `localhost:6379`를 사용하며,
+Redis가 없어도 애플리케이션은 기동할 수 있지만 로그인과 인증 요청은 사용할 수 없습니다.
+배포 시 `REDIS_HOST`, `REDIS_PORT`, `REDIS_SSL_ENABLED`를 설정하고, 인증을 사용하는 경우
+`REDIS_USERNAME`, `REDIS_PASSWORD`를 환경변수로 전달합니다. 쓰기가 필요하므로 ElastiCache
+primary endpoint를 사용합니다. 실제 주소와 인증 정보는 저장소에 기록하지 않습니다.
+
+`session:{userId}`에 세션 하나만 저장합니다. 새 로그인은 이전 로그인을 무효화하므로
+한 사용자당 동시 로그인은 한 개입니다. access token에는 `sessionId`가 들어가며 인증 시
+Redis의 현재 값과 비교합니다. `POST /api/auth/extend`는 유효한 access token으로 호출하고
+세션 ID를 교체해 새 토큰을 반환합니다. `POST /api/auth/logout`은 현재 세션을 삭제합니다.
+별도 refresh token은 사용하지 않습니다. 세션 불일치는 401, Redis 장애는 503으로 처리합니다.
+
 Windows PowerShell:
 
 ```powershell

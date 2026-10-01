@@ -34,12 +34,13 @@ public class JwtProvider {
     }
 
     // Access Token 생성
-    public String createToken(Long userId, String email, String role) {
+    public String createToken(Long userId, String email, String role, String sessionId) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + accessTokenValidityInMilliseconds);
 
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))
+                .claim("sessionId", sessionId)
                 .claim("email", email)
                 .claim("role", role)
                 .setIssuedAt(now)
@@ -53,11 +54,18 @@ public class JwtProvider {
         Claims claims = parseClaims(token);
 
         String role = claims.get("role", String.class);
+        String sessionId = claims.get("sessionId", String.class);
+        String email = claims.get("email", String.class);
+        if (role == null || role.isBlank() || sessionId == null || sessionId.isBlank()
+                || email == null || email.isBlank() || claims.getSubject() == null) {
+            throw new IllegalArgumentException("JWT authentication claims are incomplete");
+        }
         String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
         Long userId = Long.valueOf(claims.getSubject());
         JwtUserPrincipal principal = new JwtUserPrincipal(
             userId,
-            claims.get("email", String.class),
+            sessionId,
+            email,
             Collections.singleton(new SimpleGrantedAuthority(authority)));
         return new UsernamePasswordAuthenticationToken(
             principal, token, principal.getAuthorities());

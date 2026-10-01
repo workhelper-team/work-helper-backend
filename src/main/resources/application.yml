@@ -1,3 +1,13 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+
 ai:
   base-url: ${AI_BASE_URL:http://localhost:8000}
   connect-timeout: ${AI_CONNECT_TIMEOUT:5s}
