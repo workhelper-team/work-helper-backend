@@ -61,8 +61,7 @@ class ConsultationMessageServiceTest {
                 message(MessageRole.ASSISTANT, "earlier answer")));
         ConsultationAiResponse.Precedent precedent = new ConsultationAiResponse.Precedent(
                 "2026-1", "case", "court", "2026-09-18", "decision", "precedent text");
-        when(aiClient.consult(any())).thenReturn(new ConsultationAiResponse(
-                new ConsultationAiResponse.ConsultationResult("new answer", List.of(precedent))));
+        when(aiClient.consult(any())).thenReturn(new ConsultationAiResponse("new answer", List.of(precedent)));
 
         ConsultationMessageResponseDto response = service.sendMessage(3L, 7L, request("new question"));
 
@@ -84,6 +83,9 @@ class ConsultationMessageServiceTest {
         assertThat(assistant.getContent()).isEqualTo("new answer");
         assertThat(assistant.getStructuredResult().path("precedents").get(0).path("case_number").asText())
                 .isEqualTo("2026-1");
+        assertThat(assistant.getStructuredResult().path("answer").asText()).isEqualTo("new answer");
+        assertThat(assistant.getStructuredResult().path("precedents").get(0).path("caseNumber").isMissingNode())
+                .isTrue();
         assertThat(response.getRole()).isEqualTo("USER");
 
         InOrder order = inOrder(messageRepository, aiClient);

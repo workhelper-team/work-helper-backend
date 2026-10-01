@@ -1,7 +1,8 @@
 package com.workhelper.domain.consultation.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.workhelper.domain.consultation.dto.ConsultationMessageRequestDto;
 import com.workhelper.domain.consultation.dto.ConsultationMessageResponseDto;
 import com.workhelper.domain.consultation.entity.ConsultationMessage;
@@ -102,18 +103,32 @@ public class ConsultationMessageService {
 
         ConsultationAiResponse aiResponse = aiClient.consult(
                 new ConsultationAiRequest(context.chatHistory(), requestDto.getContent()));
-        if (aiResponse.consultationResult() == null
-                || !StringUtils.hasText(aiResponse.consultationResult().answer())) {
+        if (!StringUtils.hasText(aiResponse.answer())) {
             throw new AiIntegrationException(AiIntegrationException.Kind.INVALID_RESPONSE, null,
                     "AI server returned no consultation answer", null);
         }
 
-        JsonNode structuredResult = objectMapper.valueToTree(aiResponse.consultationResult());
+        ObjectNode structuredResult = objectMapper.createObjectNode();
+        structuredResult.put("answer", aiResponse.answer());
+        if (aiResponse.precedents() == null) {
+            structuredResult.putNull("precedents");
+        } else {
+            ArrayNode precedents = structuredResult.putArray("precedents");
+            for (ConsultationAiResponse.Precedent precedent : aiResponse.precedents()) {
+                ObjectNode item = precedents.addObject();
+                item.put("case_number", precedent.caseNumber());
+                item.put("case_name", precedent.caseName());
+                item.put("court_name", precedent.courtName());
+                item.put("judgment_date", precedent.judgmentDate());
+                item.put("judgment_type", precedent.judgmentType());
+                item.put("content", precedent.content());
+            }
+        }
         transactionTemplate.executeWithoutResult(status -> consultationMessageRepository.save(
                 ConsultationMessage.builder()
                         .laborCase(context.laborCase())
                         .role(MessageRole.ASSISTANT)
-                        .content(aiResponse.consultationResult().answer())
+                        .content(aiResponse.answer())
                         .structuredResult(structuredResult)
                         .build()));
 
