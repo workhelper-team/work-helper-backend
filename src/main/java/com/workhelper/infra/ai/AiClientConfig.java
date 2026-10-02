@@ -18,6 +18,7 @@ public class AiClientConfig {
             @Value("${ai.connect-timeout}") Duration connectTimeout,
             @Value("${ai.read-timeout}") Duration readTimeout) {
         HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(connectTimeout)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);

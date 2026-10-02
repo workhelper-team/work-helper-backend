@@ -10,6 +10,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -41,10 +43,12 @@ public class SecurityConfig {
             // HTTP Basic 인증 비활성화
             .httpBasic(basic -> basic.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exception -> exception.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
 
             .authorizeHttpRequests(auth -> auth
             // 로그인, 회원가입 등 인증이 필요 없는 경로는 permitAll 설정
-            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/expert-signup",
+                "/api/auth/email-availability").permitAll()
             .requestMatchers("/error").permitAll()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())

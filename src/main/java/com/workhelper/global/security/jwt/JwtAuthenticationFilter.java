@@ -1,5 +1,6 @@
 package com.workhelper.global.security.jwt;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.lang.NonNull;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.workhelper.global.security.session.RedisSessionService;
+import com.workhelper.global.security.session.SessionStoreUnavailableException;
 
 import java.io.IOException;
 
@@ -19,6 +22,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final RedisSessionService redisSessionService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -29,8 +33,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
 
         if (token != null && jwtProvider.validateToken(token)) {
-            Authentication authentication = jwtProvider.getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                Authentication authentication = jwtProvider.getAuthentication(token);
+                JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+                if (redisSessionService.isSessionValid(principal.getUserId(), principal.getSessionId())) {
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    SecurityContextHolder.clearContext();
+                }
+            } catch (JwtException | IllegalArgumentException | ClassCastException exception) {
+                SecurityContextHolder.clearContext();
+            } catch (SessionStoreUnavailableException exception) {
+                SecurityContextHolder.clearContext();
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Session store unavailable");
+                return;
+            }
         }
 
         filterChain.doFilter(request, response);

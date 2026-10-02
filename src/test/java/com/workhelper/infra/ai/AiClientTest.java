@@ -33,7 +33,7 @@ class AiClientTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Test
-    void consultationUsesCurrentContractAndReadsSnakeCasePrecedent() {
+    void consultationUsesDeployedContractAndReadsCamelCasePrecedent() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         AiClient client = new AiClient(builder.build(), objectMapper);
@@ -43,17 +43,22 @@ class AiClientTest {
                         {"chatHistory":[{"role":"ASSISTANT","content":"prior answer"}],"question":"new question"}
                         """, JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
-                        {"consultationResult":{"answer":"answer","precedents":[{"case_number":"2026-1",
-                        "case_name":"case","court_name":"court","judgment_date":"2026-09-18",
-                        "judgment_type":"type","content":"text"}]}}
+                        {"answer":"answer","precedents":[{"caseNumber":"2026-1",
+                        "caseName":"case","courtName":"court","judgmentDate":"2026-09-18",
+                        "judgmentType":"type","content":"text"}]}
                         """, MediaType.APPLICATION_JSON));
 
         ConsultationAiResponse response = client.consult(new ConsultationAiRequest(
                 List.of(new ConsultationAiRequest.ChatMessage(ConsultationAiRequest.Role.ASSISTANT, "prior answer")),
                 "new question"));
 
-        assertThat(response.consultationResult().answer()).isEqualTo("answer");
-        assertThat(response.consultationResult().precedents().get(0).caseNumber()).isEqualTo("2026-1");
+        assertThat(response.answer()).isEqualTo("answer");
+        assertThat(response.precedents().get(0).caseNumber()).isEqualTo("2026-1");
+        assertThat(response.precedents().get(0).caseName()).isEqualTo("case");
+        assertThat(response.precedents().get(0).courtName()).isEqualTo("court");
+        assertThat(response.precedents().get(0).judgmentDate()).isEqualTo("2026-09-18");
+        assertThat(response.precedents().get(0).judgmentType()).isEqualTo("type");
+        assertThat(response.precedents().get(0).content()).isEqualTo("text");
         server.verify();
     }
 

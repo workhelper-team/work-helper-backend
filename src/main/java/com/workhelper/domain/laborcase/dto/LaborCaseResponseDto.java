@@ -5,6 +5,8 @@ import com.workhelper.domain.laborcase.entity.CaseStatus;
 import com.workhelper.domain.laborcase.entity.LaborCase;
 import lombok.Getter;
 
+import java.time.OffsetDateTime;
+
 // ============================================================
 // 노동 사건 응답 DTO
 //
@@ -30,6 +32,10 @@ public class LaborCaseResponseDto {
     // 노동 사건 요약
     private String summary;
 
+    private OffsetDateTime createdAt;
+
+    private OffsetDateTime updatedAt;
+
     // ============================================================
     // LaborCase Entity → Response DTO 변환
     // ============================================================
@@ -50,5 +56,7 @@ public class LaborCaseResponseDto {
 
         // Entity의 사건 요약
         this.summary = laborCase.getSummary();
+        this.createdAt = laborCase.getCreatedAt();
+        this.updatedAt = laborCase.getUpdatedAt();
     }
 }

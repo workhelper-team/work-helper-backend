@@ -54,4 +54,4 @@ jobs:
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/workhelper-backend:latest # Docker Hub에서 최신 이미지 다운로드
             sudo docker stop workhelper-app || true # 기존에 실행 중이던 컨테이너가 있다면 중지 (없어도 에러 안 나게 처리)
             sudo docker rm workhelper-app || true # 기존 컨테이너 삭제
-            sudo docker run -d --name workhelper-app -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/workhelper-backend:latest # 다운받은 최신 이미지를 8080 포트로 백그라운드(-d) 실행
+            sudo docker run -d --name workhelper-app --env-file /home/ubuntu/workhelper.env -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/workhelper-backend:latest # 다운받은 최신 이미지를 8080 포트로 백그라운드(-d) 실행
