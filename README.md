@@ -1,46 +1,149 @@
 # WorkHelper Backend
 
-WorkHelper의 Spring Boot Backend foundation입니다. 현재는 Java/Gradle/데이터베이스 설정을 정리한 단계이며, 비즈니스 API와 도메인 구현은 아직 포함하지 않습니다.
+![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-6DB33F?logo=springboot&logoColor=white)
+![Gradle](https://img.shields.io/badge/Gradle-8.11-02303A?logo=gradle&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-session%20store-DC382D?logo=redis&logoColor=white)
 
-## 기술 기준
+## 프로젝트 개요
 
-- Java 17
-- Spring Boot 3.5.16
-- Gradle Wrapper 8.11
-- PostgreSQL 18
-- Spring Web, Spring Data JPA, Spring Validation, Spring Security
+노동 사건 관리와 상담, 증거 분석, 문서 생성을 지원하는 WorkHelper의 Spring Boot 백엔드입니다.
 
-DB Schema는 JPA 자동 생성이 아닌 별도 SQL/DDL로 관리합니다. Hibernate는 기존 Schema 검증만 수행하도록 `ddl-auto=validate`로 설정합니다.
+[서비스 접속 링크](http://workhelper-front-bucket.s3-website.ap-northeast-2.amazonaws.com/)
 
-## 로컬 설정
+## 팀 구성 및 역할 분담
 
-공통 설정은 `src/main/resources/application.yml`에 있으며, DB 접속 정보는 환경변수로 받습니다.
+| 담당자 | 구분 | 역할 |
+| --- | --- | --- |
+| 박성진(PM) | AI 서버 | 내부 API, OCR, LLM 워크플로우 및 RAG 개발, AI 서버 CI/CD, AI 서버 버전 관리 |
+| 권순현(PL) | AI 서버 | 법령·판례 수집, 파싱, 임베딩 및 DB 적재, RAG, AI 채팅상담 개발, 백엔드 CI/CD |
+| 이규원(AA) | 프론트/백 | DB 설계 및 구축, 외부 API 연동, 내부 AI API 연동, 프론트엔드/백엔드 버전 관리 |
+| 홍동연 | 프론트/백 | AI 채팅상담 화면구현, 사건목록 화면구현, 화면 UI 구현 |
+| 홍은지 | 프론트/백 | 로그인 및 회원가입 화면구현, JWT + Redis Session 기반 인증 세션 구현, React Router 기반 라우팅 제어 |
+| 홍은영 | 프론트/백 | 전문가 QnA 화면구현, JWT 기반 사용자 권한별 분기 처리, S3 파일 업로드 로직 구현, 통합 테스트 |
+
+## 시연 영상 및 서비스 화면
+
+### 시연 영상
+[![](docs/images/fp-thumbnail.png)](https://youtu.be/jGwFLN5WKLM)
+
+### 서비스 화면
+
+| 메인화면 | 로그인 화면 | 사건 관리 화면 |
+| :---: | :---: | :---: |
+| ![](docs/images/main.png) | ![](docs/images/login.png) | ![](docs/images/mycase.png) |
+
+| AI 채팅 상담 화면 | 증거 서류 분석 화면 | 진정서 작성 초안 화면 |
+| :---: | :---: | :---: |
+| ![](docs/images/aichat.png) | ![](docs/images/ocr.png) | ![](docs/images/petition.png) |
+
+## 주요 기능
+
+- 회원가입, 로그인, JWT 인증 및 Redis 기반 로그인 세션 관리
+- 노동 사건 생성, 목록·상세 조회 및 수정
+- 사건별 증거 파일 업로드, 조회, 수정 및 삭제
+- 증거 분석 요청과 상담 메시지 송수신
+- 사건 관련 문서 관리 및 진정서 PDF 다운로드
+- 전문가 질문 등록·조회 및 법률자료 검색·상세 조회
+
+## 기술 스택
+
+| 구분 | 기술 |
+| --- | --- |
+| Language | Java 17 |
+| Framework | Spring Boot 3.5.16, Spring Web, Spring Data JPA, Spring Validation, Spring Security |
+| Build | Gradle Wrapper 8.11 |
+| Database | PostgreSQL 18 |
+| Session | Redis |
+| Authentication | Spring Security, JWT (JJWT 0.11.5) |
+| Storage | Local disk, AWS S3 (AWS SDK 2.31.68) |
+| AI 연동 | ![내부 HTTP AI Client](https://github.com/workhelper-team/work-helper-ai) |
+| PDF | Apache PDFBox 3.0.8 |
+| Test | Spring Boot Test, JUnit Platform |
+
+## 서비스 아키텍처
+
+```mermaid
+flowchart LR
+	Client[클라이언트] --> API[Spring REST API]
+	API --> Domain[도메인 Service]
+	Domain --> Repository[JPA Repository]
+	Repository --> DB[(PostgreSQL)]
+	Domain --> Session[Redis 로그인 세션]
+	Domain --> Storage[EvidenceStorageService]
+	Storage --> Local[로컬 디스크]
+	Storage --> S3[AWS S3]
+	Domain --> AI[AI Client]
+```
+
+## 프로젝트 디렉토리 구조
+
+```text
+src
+├─ main
+│  ├─ java/com/workhelper
+│  │  ├─ domain
+│  │  │  ├─ auth          # 회원가입, 로그인, 로그아웃
+│  │  │  ├─ user          # 사용자
+│  │  │  ├─ laborcase     # 노동 사건
+│  │  │  ├─ consultation  # 상담 메시지
+│  │  │  ├─ evidence      # 증거 자료 및 분석
+│  │  │  ├─ document      # 문서 및 PDF 생성
+│  │  │  ├─ expert        # 전문가 Q&A 및 프로필
+│  │  │  ├─ legal         # 법률자료
+│  │  │  └─ favorite      # [구현 여부 및 담당 기능 확인 필요]
+│  │  ├─ global
+│  │  │  ├─ config        # Security, CORS 설정
+│  │  │  ├─ error         # 공통 오류 처리
+│  │  │  └─ security      # JWT, Redis 세션
+│  │  └─ infra
+│  │     ├─ ai            # AI Client 및 DTO
+│  │     └─ storage       # 로컬/S3 저장소
+│  └─ resources
+│     ├─ application.yml
+│     ├─ fonts
+│     └─ pdf
+└─ test/java/com/workhelper
+```
+
+## 실행 방법
+
+### 사전 준비
+
+- JDK 17
+- PostgreSQL 및 애플리케이션용 데이터베이스
+- 로그인·인증 기능 사용 시 Redis
+
+Hibernate는 `ddl-auto: validate`로 설정되어 있습니다. 실행 전에 데이터베이스 Schema를 별도 DDL로 준비해야 하며, DDL은 이 저장소에 포함되어 있지 않습니다.
+
+### 환경 변수
+
+필수 데이터베이스 및 JWT 설정:
 
 ```text
 DB_URL=jdbc:postgresql://localhost:5432/workhelper
 DB_USERNAME=postgres
 DB_PASSWORD=<local-secret>
+JWT_SECRET=<secret-key>
 ```
 
-로컬 profile이 필요하면 `src/main/resources/application-local.example.yml`을 `application-local.yml`로 복사하고, `SPRING_PROFILES_ACTIVE=local`을 설정합니다. 실제 `application-local.yml`은 Git에 포함하지 않습니다.
+선택 설정의 기본값 및 목적:
 
-애플리케이션 실행 전 별도 DDL로 PostgreSQL Schema를 준비해야 합니다. 현재 repository에는 DDL을 생성하지 않습니다.
+| 변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `REDIS_HOST` | `localhost` | Redis 호스트 |
+| `REDIS_PORT` | `6379` | Redis 포트 |
+| `REDIS_USERNAME` | 빈 값 | Redis 인증 사용자 |
+| `REDIS_PASSWORD` | 빈 값 | Redis 비밀번호 |
+| `REDIS_SSL_ENABLED` | `false` | Redis TLS 사용 여부 |
+| `AI_BASE_URL` | `http://localhost:8000` | AI 연동 서버 주소 |
+| `STORAGE_TYPE` | `local` | 증거 파일 저장 방식 (`local` 또는 S3 설정) |
+| `STORAGE_LOCAL_ROOT` | `uploads` | 로컬 파일 저장 경로 |
+| `STORAGE_S3_BUCKET` | 빈 값 | S3 버킷 |
+| `AWS_REGION` | `ap-northeast-2` | AWS 리전 |
 
-## 실행
-
-### Redis 로그인 세션
-
-로그인과 토큰 연장은 Redis가 필요합니다. 로컬에서는 기본값 `localhost:6379`를 사용하며,
-Redis가 없어도 애플리케이션은 기동할 수 있지만 로그인과 인증 요청은 사용할 수 없습니다.
-배포 시 `REDIS_HOST`, `REDIS_PORT`, `REDIS_SSL_ENABLED`를 설정하고, 인증을 사용하는 경우
-`REDIS_USERNAME`, `REDIS_PASSWORD`를 환경변수로 전달합니다. 쓰기가 필요하므로 ElastiCache
-primary endpoint를 사용합니다. 실제 주소와 인증 정보는 저장소에 기록하지 않습니다.
-
-`session:{userId}`에 세션 하나만 저장합니다. 새 로그인은 이전 로그인을 무효화하므로
-한 사용자당 동시 로그인은 한 개입니다. access token에는 `sessionId`가 들어가며 인증 시
-Redis의 현재 값과 비교합니다. `POST /api/auth/extend`는 유효한 access token으로 호출하고
-세션 ID를 교체해 새 토큰을 반환합니다. `POST /api/auth/logout`은 현재 세션을 삭제합니다.
-별도 refresh token은 사용하지 않습니다. 세션 불일치는 401, Redis 장애는 503으로 처리합니다.
+### 빌드 및 실행
 
 Windows PowerShell:
 
@@ -54,26 +157,4 @@ Unix 계열:
 ```bash
 ./gradlew clean build
 ./gradlew bootRun
-```
-
-## 현재 범위와 향후 구조
-
-현재는 foundation만 구성되어 있습니다. JWT 인증/인가, Security 정책, CORS, AI Client, S3 파일 저장, Entity, Controller, Service, Repository는 기능 개발 단계에서 설계 문서를 기준으로 구현합니다.
-
-향후 Java package는 필요한 기능부터 아래 방향으로 생성합니다.
-
-```text
-com.workhelper
-├─ domain
-│  ├─ auth
-│  ├─ user
-│  ├─ laborcase
-│  ├─ consultation
-│  ├─ evidence
-│  ├─ document
-│  ├─ expert
-│  ├─ favorite
-│  └─ legal
-├─ global
-└─ infra
 ```
