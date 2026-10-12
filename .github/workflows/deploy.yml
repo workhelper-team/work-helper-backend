@@ -5,6 +5,11 @@ name: Workhelper Backend Server CI/CD
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+      - '.github/**'
+      - 'docs/**'
 
 jobs:
   build-and-deploy:
