@@ -60,10 +60,10 @@
 | Framework | Spring Boot 3.5.16, Spring Web, Spring Data JPA, Spring Validation, Spring Security |
 | Build | Gradle Wrapper 8.11 |
 | Database | PostgreSQL 18 |
-| Session | Redis |
+| Session | Redis-compatible session store (AWS ElastiCache / Valkey) |
 | Authentication | Spring Security, JWT (JJWT 0.11.5) |
 | Storage | Local disk, AWS S3 (AWS SDK 2.31.68) |
-| AI 연동 | ![내부 HTTP AI Client](https://github.com/workhelper-team/work-helper-ai) |
+| AI 연동 | [FastAPI AI Server](https://github.com/workhelper-team/work-helper-ai) |
 | PDF | Apache PDFBox 3.0.8 |
 | Test | Spring Boot Test, JUnit Platform |
 
