@@ -98,7 +98,7 @@ public class S3EvidenceStorageService implements EvidenceStorageService {
 
     @Override
     public String getFileUrl(String objectKey) {
-        return s3Client.utilities().getUrl(builder -> builder.bucket(bucketName).key(objectKey)).toExternalForm();
+        return getPresignedGetUrl(objectKey);
     }
 
     @Override

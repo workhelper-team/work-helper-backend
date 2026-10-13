@@ -55,6 +55,46 @@ class EvidenceServiceImplTest {
     }
 
     @Test
+    void detailReturnsStorageUrlAfterOwnershipCheckWithoutChangingStoragePath() {
+        String objectKey = "evidences/3/image.png";
+        String presignedUrl = "https://private.example/image.png?X-Amz-Signature=example";
+        ReflectionTestUtils.setField(evidence, "storagePath", objectKey);
+        ReflectionTestUtils.setField(evidence, "mimeType", "image/png");
+        when(storage.getFileUrl(objectKey)).thenReturn(presignedUrl);
+
+        var response = service.getEvidenceDetail(7L, 3L, 9L);
+
+        assertThat(response.fileUrl()).isNotNull().isEqualTo(presignedUrl);
+        assertThat(response.mimeType()).isEqualTo("image/png");
+        assertThat(evidence.getStoragePath()).isEqualTo(objectKey);
+        InOrder order = inOrder(laborCaseRepository, evidenceRepository, storage);
+        order.verify(laborCaseRepository).findByCaseIdAndUserId(3L, 7L);
+        order.verify(evidenceRepository).findByEvidenceIdAndLaborCase_CaseId(9L, 3L);
+        order.verify(storage).getFileUrl(objectKey);
+        verify(evidenceRepository, never()).save(any());
+        verifyNoInteractions(aiClient);
+    }
+
+    @Test
+    void detailRejectsAnotherUserBeforeGeneratingUrl() {
+        assertThatThrownBy(() -> service.getEvidenceDetail(8L, 3L, 9L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(evidenceRepository, storage, aiClient);
+    }
+
+    @Test
+    void detailRejectsEvidenceFromAnotherCaseBeforeGeneratingUrl() {
+        when(evidenceRepository.findByEvidenceIdAndLaborCase_CaseId(10L, 3L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getEvidenceDetail(7L, 3L, 10L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(storage, aiClient);
+    }
+
+    @Test
     void sendsPresignedUrlAndDescriptionAndCommitsResult() {
         when(aiClient.analyzeEvidence(any())).thenReturn(new EvidenceAnalysisAiResponse("ocr", "summary"));
 
